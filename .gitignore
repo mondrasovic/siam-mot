@@ -1,6 +1,7 @@
 /demos/models
 
 .idea
+.vscode
 
 *.pth
 *.png
