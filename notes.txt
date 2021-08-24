@@ -1,0 +1,5 @@
+Installation
+
+Install CUDA 11.0
+install numpy 1.16.6
+Then install the maskrcnn-benchmark with all its dependencies (don't forget to apply your custom patch)

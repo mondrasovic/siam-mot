@@ -40,8 +40,8 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: "E:/datasets/MOT17"
-  TRAIN: ("crowdhuman_train_fbox", "crowdhuman_val_fbox")
+  ROOT_DIR: "E:/datasets/"
+  TRAIN: ("MOT17",)
 
 DATALOADER:
   SIZE_DIVISIBILITY: 32

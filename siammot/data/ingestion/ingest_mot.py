@@ -120,7 +120,8 @@ def main(args, description="Initial ingestion", det_options=None, mot17=True):
             subdirs = glob.glob(os.path.join(split_path, "*" + det_option))
             for i, subdir in enumerate(subdirs):
                 vid_id = os.path.basename(subdir)
-                vid_path = os.path.join(split_path, subdir)
+                # vid_path = os.path.join(split_path, subdir)
+                vid_path = subdir
 
                 sample = DataSample(vid_id)
 
