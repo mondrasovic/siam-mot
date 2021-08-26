@@ -1,9 +1,9 @@
-from torch import nn
 from collections import OrderedDict
 
+import maskrcnn_benchmark.modeling.backbone.fpn as fpn_module
 from maskrcnn_benchmark.modeling import registry
 from maskrcnn_benchmark.modeling.make_layers import conv_with_kaiming_uniform
-import maskrcnn_benchmark.modeling.backbone.fpn as fpn_module
+from torch import nn
 
 from .dla import dla
 
@@ -20,7 +20,7 @@ def build_dla_fpn_backbone(cfg):
     in_channels_stage4 = cfg.MODEL.DLA.DLA_STAGE4_OUT_CHANNELS
     in_channels_stage5 = cfg.MODEL.DLA.DLA_STAGE5_OUT_CHANNELS
     out_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
-
+    
     fpn = fpn_module.FPN(
         in_channels_list=[
             in_channels_stage2,
@@ -41,8 +41,8 @@ def build_dla_fpn_backbone(cfg):
 
 def build_backbone(cfg):
     assert cfg.MODEL.BACKBONE.CONV_BODY in registry.BACKBONES, \
-        "cfg.MODEL.BACKBONE.CONV_BODY: {} are not registered in registry".format(
+        "cfg.MODEL.BACKBONE.CONV_BODY: {} are not registered in " \
+        "registry".format(
             cfg.MODEL.BACKBONE.CONV_BODY
         )
     return registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
-

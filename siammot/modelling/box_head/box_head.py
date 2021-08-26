@@ -1,8 +1,11 @@
 import torch
-
-from maskrcnn_benchmark.modeling.roi_heads.box_head.roi_box_feature_extractors import make_roi_box_feature_extractor
-from maskrcnn_benchmark.modeling.roi_heads.box_head.roi_box_predictors import make_roi_box_predictor
-from maskrcnn_benchmark.modeling.roi_heads.box_head.loss import make_roi_box_loss_evaluator
+from maskrcnn_benchmark.modeling.roi_heads.box_head.loss import \
+    make_roi_box_loss_evaluator
+from maskrcnn_benchmark.modeling.roi_heads.box_head \
+    .roi_box_feature_extractors import \
+    make_roi_box_feature_extractor
+from maskrcnn_benchmark.modeling.roi_heads.box_head.roi_box_predictors import \
+    make_roi_box_predictor
 
 from .inference import make_roi_box_post_processor
 
@@ -11,15 +14,18 @@ class ROIBoxHead(torch.nn.Module):
     """
     Generic Box Head class.
     """
-
+    
     def __init__(self, cfg, in_channels):
         super(ROIBoxHead, self).__init__()
-        self.feature_extractor = make_roi_box_feature_extractor(cfg, in_channels)
+        self.feature_extractor = make_roi_box_feature_extractor(
+            cfg, in_channels
+        )
         self.predictor = make_roi_box_predictor(
-            cfg, self.feature_extractor.out_channels)
+            cfg, self.feature_extractor.out_channels
+        )
         self.post_processor = make_roi_box_post_processor(cfg)
         self.loss_evaluator = make_roi_box_loss_evaluator(cfg)
-
+    
     def forward(self, features, proposals, targets=None):
         """
         Arguments:
@@ -30,27 +36,30 @@ class ROIBoxHead(torch.nn.Module):
         Returns:
             x (Tensor): the result of the feature extractor
             proposals (list[BoxList]): during training, the subsampled proposals
-                are returned. During testing, the predicted boxlists are returned
+                are returned. During testing, the predicted boxlists are
+                returned
             losses (dict[Tensor]): During training, returns the losses for the
                 head. During testing, returns an empty dict.
         """
-
+        
         if self.training:
             # Faster R-CNN subsamples during training the proposals with a fixed
             # positive / negative ratio
             with torch.no_grad():
                 proposals = self.loss_evaluator.subsample(proposals, targets)
-
+        
         # extract features that will be fed to the final classifier. The
         # feature_extractor generally corresponds to the pooler + heads
         x = self.feature_extractor(features, proposals)
         # final classifier that converts the features into predictions
         class_logits, box_regression = self.predictor(x)
-
+        
         if not self.training:
-            result = self.post_processor((class_logits, box_regression), proposals)
+            result = self.post_processor(
+                (class_logits, box_regression), proposals
+            )
             return x, result, {}
-
+        
         loss_classifier, loss_box_reg = self.loss_evaluator(
             [class_logits], [box_regression]
         )

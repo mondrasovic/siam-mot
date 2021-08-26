@@ -1,48 +1,56 @@
-import torch
 import maskrcnn_benchmark.modeling.rpn.inference as rpn_inference
-from maskrcnn_benchmark.structures.bounding_box import BoxList
-from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
-from maskrcnn_benchmark.structures.boxlist_ops import remove_small_boxes
+import torch
 from maskrcnn_benchmark.modeling.rpn.utils import permute_and_flatten
+from maskrcnn_benchmark.structures.bounding_box import BoxList
+from maskrcnn_benchmark.structures.boxlist_ops import (
+    boxlist_nms,
+    remove_small_boxes,
+)
 
 
 class RPNPostProcessor(rpn_inference.RPNPostProcessor):
     def __init__(self, amodal=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        
         self._amodal = amodal
-
-    def forward_for_single_feature_map(self, anchors, objectness, box_regression):
-
+    
+    def forward_for_single_feature_map(
+        self, anchors, objectness, box_regression
+    ):
+        
         device = objectness.device
         N, A, H, W = objectness.shape
-
+        
         # put in the same format as anchors
         objectness = permute_and_flatten(objectness, N, A, 1, H, W).view(N, -1)
         objectness = objectness.sigmoid()
-
+        
         box_regression = permute_and_flatten(box_regression, N, A, 4, H, W)
-
+        
         num_anchors = A * H * W
-
+        
         pre_nms_top_n = min(self.pre_nms_top_n, num_anchors)
-        objectness, topk_idx = objectness.topk(pre_nms_top_n, dim=1, sorted=True)
-
+        objectness, topk_idx = objectness.topk(
+            pre_nms_top_n, dim=1, sorted=True
+        )
+        
         batch_idx = torch.arange(N, device=device)[:, None]
         box_regression = box_regression[batch_idx, topk_idx]
-
+        
         image_shapes = [box.size for box in anchors]
         concat_anchors = torch.cat([a.bbox for a in anchors], dim=0)
         concat_anchors = concat_anchors.reshape(N, -1, 4)[batch_idx, topk_idx]
-
+        
         proposals = self.box_coder.decode(
             box_regression.view(-1, 4), concat_anchors.view(-1, 4)
         )
-
+        
         proposals = proposals.view(N, -1, 4)
-
+        
         result = []
-        for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
+        for proposal, score, im_shape in zip(
+            proposals, objectness, image_shapes
+        ):
             boxlist = BoxList(proposal, im_shape, mode="xyxy")
             boxlist.add_field("objectness", score)
             # operator Patch
@@ -64,7 +72,7 @@ def make_rpn_postprocessor(config, rpn_box_coder, is_train):
     fpn_post_nms_top_n = config.MODEL.RPN.FPN_POST_NMS_TOP_N_TRAIN
     if not is_train:
         fpn_post_nms_top_n = config.MODEL.RPN.FPN_POST_NMS_TOP_N_TEST
-
+    
     pre_nms_top_n = config.MODEL.RPN.PRE_NMS_TOP_N_TRAIN
     post_nms_top_n = config.MODEL.RPN.POST_NMS_TOP_N_TRAIN
     if not is_train:

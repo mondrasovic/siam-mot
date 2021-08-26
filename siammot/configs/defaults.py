@@ -1,6 +1,6 @@
+from maskrcnn_benchmark.config import cfg
 from yacs.config import CfgNode as CN
 
-from maskrcnn_benchmark.config import cfg
 
 # default detector config (Rewrite some of them in cfg)
 cfg.MODEL.META_ARCHITECTURE = 'GeneralizedRCNN'
@@ -44,7 +44,8 @@ cfg.MODEL.TRACK_HEAD.POOLER_RESOLUTION = 15
 cfg.MODEL.TRACK_HEAD.POOLER_SAMPLING_RATIO = 2
 
 cfg.MODEL.TRACK_HEAD.PAD_PIXELS = 512
-# the times of width/height of search region comparing to original bounding boxes
+# the times of width/height of search region comparing to original bounding
+# boxes
 cfg.MODEL.TRACK_HEAD.SEARCH_REGION = 2.0
 # the minimal width / height of the search region
 cfg.MODEL.TRACK_HEAD.MINIMUM_SREACH_REGION = 0
@@ -89,17 +90,17 @@ cfg.VIDEO.TEMPORAL_WINDOW = 8
 cfg.VIDEO.TEMPORAL_SAMPLING = 4
 cfg.VIDEO.RANDOM_FRAMES_PER_CLIP = 2
 
-#Inference
+# Inference
 cfg.INFERENCE = CN()
 cfg.INFERENCE.USE_GIVEN_DETECTIONS = False
 # The length of clip per forward pass
 cfg.INFERENCE.CLIP_LEN = 1
 
-#Solver
+# Solver
 cfg.SOLVER.CHECKPOINT_PERIOD = 5000
 cfg.SOLVER.VIDEO_CLIPS_PER_BATCH = 16
 
-#Input
+# Input
 cfg.INPUT.MOTION_LIMIT = 0.1
 cfg.INPUT.COMPRESSION_LIMIT = 50
 cfg.INPUT.MOTION_BLUR_PROB = 0.5
