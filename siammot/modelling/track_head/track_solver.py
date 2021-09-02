@@ -118,7 +118,7 @@ class TrackSolver(torch.nn.Module):
         return [combined_detection]
 
 
-def builder_tracker_solver(cfg, track_pool):
+def build_tracker_solver(cfg, track_pool):
     return TrackSolver(
         track_pool,
         cfg.MODEL.TRACK_HEAD.TRACK_THRESH,

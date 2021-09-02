@@ -4,7 +4,7 @@ from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 
 from .box_head.box_head import build_roi_box_head
 from .track_head.track_head import build_track_head
-from .track_head.track_solver import builder_tracker_solver
+from .track_head.track_solver import build_tracker_solver
 from .track_head.track_utils import build_track_utils
 
 
@@ -105,7 +105,7 @@ def build_roi_heads(cfg, in_channels):
             ("track", build_track_head(cfg, track_utils, track_pool))
         )
         # solver is a non-learnable layer that would only be used during inference
-        roi_heads.append(("solver", builder_tracker_solver(cfg, track_pool)))
+        roi_heads.append(("solver", build_tracker_solver(cfg, track_pool)))
     
     # combine individual heads in a single module
     if roi_heads:
