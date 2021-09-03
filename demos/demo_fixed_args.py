@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 
@@ -7,28 +6,18 @@ from demos.utils.vis_generator import VisGenerator
 from demos.utils.vis_writer import VisWriter
 from demos.video_iterator import build_video_iterator
 
-parser = argparse.ArgumentParser(" SiamMOT Inference Demo")
-parser.add_argument(
-    '--demo-video', metavar="FILE", type=str,
-    required=True
-)
-parser.add_argument(
-    '--track-class', type=str, choices=('person', 'person_vehicle'),
-    default='person',
-    help='Tracking person or person/vehicle jointly'
-)
-parser.add_argument(
-    "--dump-video", type=bool, default=False,
-    help="Dump the videos as results"
-)
-parser.add_argument("--vis-resolution", type=int, default=1080)
-parser.add_argument(
-    "--output-path", type=str, default=None,
-    help='The path of dumped videos'
-)
+from dataclasses import dataclass
 
 if __name__ == '__main__':
-    args = parser.parse_args()
+    @dataclass(frozen=True)
+    class Args:
+        vis_resolution: int = 1080
+        track_class: str = 'person_vehicle'
+        dump_video: bool = False
+        output_path: str = "E:/siammot_sandbox/tracking_vis"
+        demo_video: str = "E:/interreg_sample.mp4"
+    
+    args = Args()
     
     logging.basicConfig(
         format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%('
