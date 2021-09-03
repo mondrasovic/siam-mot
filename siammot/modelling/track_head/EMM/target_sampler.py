@@ -211,9 +211,9 @@ class EMMTargetSampler(object):
         track_pair = []
         for src_gt, tar_gt, proposal in zip(src_gts, tar_gts, proposals):
             pos_src_boxlist, pos_pair_boxlist, pos_tar_boxlist = ([] for _ in
-            range(3))
+                range(3))
             hn_src_boxlist, hn_pair_boxlist, hn_tar_boxlist = ([] for _ in
-            range(3))
+                range(3))
             
             proposal_h = proposal.bbox[:, 3] - proposal.bbox[:, 1]
             src_h = src_gt.bbox[:, 3] - src_gt.bbox[:, 1]

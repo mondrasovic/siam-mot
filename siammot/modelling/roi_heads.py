@@ -1,7 +1,14 @@
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import torch
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
+from torch import Tensor
+from yacs.config import CfgNode
 
+from siammot.modelling.box_head.box_head import ROIBoxHead
+from siammot.modelling.track_head.track_head import TrackHead
+from siammot.modelling.track_head.track_solver import TrackSolver
 from .box_head.box_head import build_roi_box_head
 from .track_head.track_head import build_track_head
 from .track_head.track_solver import build_tracker_solver
@@ -15,14 +22,25 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     head.
     """
     
-    def __init__(self, cfg, heads):
+    def __init__(
+        self,
+        cfg: CfgNode,
+        heads: List[Union[Tuple[str, ROIBoxHead], Tuple[str, TrackHead], Tuple[
+            str, TrackSolver]]]
+    ) -> None:
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()
     
     def forward(
-        self, features, proposals, targets=None, track_memory=None,
-        given_detection=None
-    ):
+        self,
+        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        proposals: List[BoxList],
+        targets: None = None,
+        track_memory: Optional[
+            Tuple[Tensor, List[BoxList], List[BoxList]]] = None,
+        given_detection: None = None
+    ) -> Tuple[Tuple[Tensor, List[BoxList], List[BoxList]], List[BoxList], Dict[
+        Any, Any]]:
         losses = {}
         
         if given_detection is None:
@@ -58,14 +76,18 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         
         return x, detections, losses
     
-    def reset_roi_status(self):
+    def reset_roi_status(self) -> None:
         """
         Reset the status of ROI Heads
         """
         if self.cfg.MODEL.TRACK_ON:
             self.track.reset_track_pool()
     
-    def _refine_tracks(self, features, tracks):
+    def _refine_tracks(
+        self,
+        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        tracks: List[BoxList]
+    ) -> List[BoxList]:
         """
         Use box head to refine the bounding box location
         The final vis score is an average between appearance and matching score
@@ -94,7 +116,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         return [r_tracks]
 
 
-def build_roi_heads(cfg, in_channels):
+def build_roi_heads(cfg: CfgNode, in_channels: int) -> CombinedROIHeads:
     # individually create the heads, that will be combined together
     roi_heads = []
     if not cfg.MODEL.RPN_ONLY:
@@ -104,7 +126,8 @@ def build_roi_heads(cfg, in_channels):
         roi_heads.append(
             ("track", build_track_head(cfg, track_utils, track_pool))
         )
-        # solver is a non-learnable layer that would only be used during inference
+        # solver is a non-learnable layer that would only be used during
+        # inference
         roi_heads.append(("solver", build_tracker_solver(cfg, track_pool)))
     
     # combine individual heads in a single module

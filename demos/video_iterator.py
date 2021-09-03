@@ -1,9 +1,11 @@
 import os
+from typing import Iterator, Tuple
 
 import cv2
 import ffmpeg
 import numpy as np
 from decord import cpu, VideoReader
+from numpy import int32, ndarray
 
 
 class DecordVideoIterator(object):
@@ -13,7 +15,7 @@ class DecordVideoIterator(object):
     in this case, we recommend use cv2.
     """
     
-    def __init__(self, video_file, frame_idxs=None):
+    def __init__(self, video_file: str, frame_idxs=None) -> None:
         """
         :param video_file: video file path
         :param frame_idxs: frame that are to be processed, a list of integers
@@ -27,13 +29,13 @@ class DecordVideoIterator(object):
         else:
             self._frame_idxs = sorted(frame_idxs)
     
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._frame_idxs)
     
     def video_len(self):
         return len(self.vr)
     
-    def __call__(self):
+    def __call__(self) -> Iterator[Tuple[int32, ndarray]]:
         for idx in range(self.__len__()):
             frame_idx = self._frame_idxs[idx]
             frame = self.vr[frame_idx].asnumpy()
@@ -47,7 +49,7 @@ class CV2VideoIterator(object):
     Deprecated, it is slow. It is only used for sanity check.
     """
     
-    def __init__(self, video_file, frame_idxs=None):
+    def __init__(self, video_file, frame_idxs=None) -> None:
         vr = cv2.VideoCapture(video_file)
         assert vr.isOpened(), "Cannot open the video file: {}".format(
             video_file
@@ -80,7 +82,7 @@ class CV2VideoIterator(object):
                 break
 
 
-def check_rotation(video_file):
+def check_rotation(video_file: str) -> int:
     meta_dict = ffmpeg.probe(video_file)
     rotation = 0
     if 'rotate' in meta_dict['streams'][0]['tags']:
@@ -95,7 +97,7 @@ class ImageFolderIterator(object):
     that includes a list of JPEG frames
     """
     
-    def __init__(self, video_folder, frame_idxs=None):
+    def __init__(self, video_folder: str, frame_idxs=None) -> None:
         import os
         import glob
         
@@ -118,7 +120,10 @@ class ImageFolderIterator(object):
             yield frame_idx, frame[:, :, ::-1]
 
 
-def build_video_iterator(video_path, video_decode='decord'):
+def build_video_iterator(
+    video_path: str,
+    video_decode: str = 'decord'
+) -> DecordVideoIterator:
     if os.path.isdir(video_path):
         return ImageFolderIterator(video_path)
     else:

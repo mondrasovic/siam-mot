@@ -1,11 +1,25 @@
-import torch
-from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+import torch
+from maskrcnn_benchmark.structures.bounding_box import BoxList
+from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
+from torch import Tensor
+from yacs.config import CfgNode
+
+from siammot.modelling.track_head.EMM.target_sampler import EMMTargetSampler
+from siammot.modelling.track_head.EMM.track_core import EMM
+from siammot.modelling.track_head.track_utils import TrackPool, TrackUtils
 from siammot.utils import registry
 
 
 class TrackHead(torch.nn.Module):
-    def __init__(self, tracker, tracker_sampler, track_utils, track_pool):
+    def __init__(
+        self,
+        tracker: EMM,
+        tracker_sampler: EMMTargetSampler,
+        track_utils: TrackUtils,
+        track_pool: TrackPool
+    ) -> None:
         super(TrackHead, self).__init__()
         
         self.tracker = tracker
@@ -15,8 +29,14 @@ class TrackHead(torch.nn.Module):
         self.track_pool = track_pool
     
     def forward(
-        self, features, proposals=None, targets=None, track_memory=None
-    ):
+        self,
+        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        proposals: Optional[List[BoxList]] = None,
+        targets: None = None,
+        track_memory: Optional[
+            Tuple[Tensor, List[BoxList], List[BoxList]]] = None
+    ) -> Union[Tuple[Dict[Any, Any], None, Dict[Any, Any]], Tuple[
+        Dict[Any, Any], List[BoxList], Dict[Any, Any]]]:
         if self.training:
             return self.forward_train(features, proposals, targets)
         else:
@@ -41,7 +61,13 @@ class TrackHead(torch.nn.Module):
             features, track_proposals, sr=sr, targets=track_targets
         )
     
-    def forward_inference(self, features, track_memory=None):
+    def forward_inference(
+        self,
+        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        track_memory: Optional[
+            Tuple[Tensor, List[BoxList], List[BoxList]]] = None
+    ) -> Union[Tuple[Dict[Any, Any], None, Dict[Any, Any]], Tuple[
+        Dict[Any, Any], List[BoxList], Dict[Any, Any]]]:
         track_boxes = None
         if track_memory is None:
             self.track_pool.reset()
@@ -54,13 +80,17 @@ class TrackHead(torch.nn.Module):
                 )
         return {}, track_boxes, {}
     
-    def reset_track_pool(self):
+    def reset_track_pool(self) -> None:
         """
         Reset the track pool
         """
         self.track_pool.reset()
     
-    def get_track_memory(self, features, tracks):
+    def get_track_memory(
+        self,
+        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        tracks: List[BoxList]
+    ) -> Tuple[Tensor, List[BoxList], List[BoxList]]:
         assert (len(tracks) == 1)
         active_tracks = self._get_track_targets(tracks[0])
         
@@ -83,7 +113,10 @@ class TrackHead(torch.nn.Module):
         
         return track_memory
     
-    def _update_memory_with_dormant_track(self, track_memory):
+    def _update_memory_with_dormant_track(
+        self,
+        track_memory: Tuple[Tensor, List[BoxList], List[BoxList]]
+    ) -> Tuple[Tensor, List[BoxList], List[BoxList]]:
         cache = self.track_pool.get_cache()
         if not cache or track_memory is None:
             return track_memory
@@ -105,7 +138,7 @@ class TrackHead(torch.nn.Module):
         boxes = cat_boxlist(track_memory[2] + [x[2] for x in dormant_caches])
         return features, [sr], [boxes]
     
-    def _get_track_targets(self, target):
+    def _get_track_targets(self, target: BoxList) -> BoxList:
         if len(target) == 0:
             return target
         active_ids = self.track_pool.get_active_ids()
@@ -121,9 +154,16 @@ class TrackHead(torch.nn.Module):
         return target[idxs]
 
 
-def build_track_head(cfg, track_utils, track_pool):
-    import siammot.modelling.track_head.EMM.track_core
-    import siammot.modelling.track_head.EMM.target_sampler
+def build_track_head(
+    cfg: CfgNode,
+    track_utils: TrackUtils,
+    track_pool: TrackPool
+) -> TrackHead:
+    import siammot.modelling.track_head.EMM.track_core as track_core
+    import siammot.modelling.track_head.EMM.target_sampler as target_sampler
+    
+    track_core  # To avoid the code clean-up routines to delete the import.
+    target_sampler
     
     tracker = registry.SIAMESE_TRACKER[
         cfg.MODEL.TRACK_HEAD.MODEL

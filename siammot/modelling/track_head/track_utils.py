@@ -30,7 +30,7 @@ class TrackUtils(object):
         # during training, thus swap order
         for xx in range(0, len(entity_list), 2):
             entity_list[xx], entity_list[xx + 1] = entity_list[xx + 1], \
-            entity_list[xx]
+                entity_list[xx]
         return entity_list
     
     @staticmethod
@@ -77,9 +77,9 @@ class TrackUtils(object):
             
             # todo: need to check the equation later
             min_w_ext = (self.min_search_wh - bbox_w) / (
-                    self.search_expansion * 2.)
+                self.search_expansion * 2.)
             min_h_ext = (self.min_search_wh - bbox_h) / (
-                    self.search_expansion * 2.)
+                self.search_expansion * 2.)
             
             w_ext = torch.max(min_w_ext, w_ext)
             h_ext = torch.max(min_h_ext, h_ext)

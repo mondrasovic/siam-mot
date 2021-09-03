@@ -3,17 +3,22 @@ import os
 import urllib
 import zipfile
 from pathlib import Path
+from typing import Any, Iterator, Optional, Tuple
 
 import torch
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
+from numpy import int32, ndarray
 from PIL import Image
+from torch import Tensor
 from tqdm import tqdm
 
+from demos.utils.vis_generator import VisGenerator
+from demos.utils.vis_writer import VisWriter
 from siammot.configs.defaults import cfg
 from siammot.data.adapters.augmentation.build_augmentation import \
     build_siam_augmentation
-from siammot.modelling.rcnn import build_siammot
+from siammot.modelling.rcnn import build_siammot, SiamMOT
 
 
 class DemoInference:
@@ -23,11 +28,11 @@ class DemoInference:
     
     def __init__(
         self,
-        gpu_id=0,
-        track_class=None,
-        vis_generator=None,
-        vis_writer=None
-    ):
+        gpu_id: int = 0,
+        track_class: Optional[str] = None,
+        vis_generator: Optional[VisGenerator] = None,
+        vis_writer: Optional[VisWriter] = None
+    ) -> None:
         
         self.device = torch.device("cuda:{}".format(gpu_id))
         self.track_class = track_class
@@ -44,7 +49,7 @@ class DemoInference:
         self.vis_generator = vis_generator
         self.vis_writer = vis_writer
     
-    def _get_artifacts(self):
+    def _get_artifacts(self) -> Tuple[str, str]:
         file_path = Path(os.path.abspath(__file__))
         workplace_dir = str(file_path.parent.absolute())
         
@@ -77,7 +82,7 @@ class DemoInference:
         
         return cfg_file, model_path
     
-    def _preprocess(self, frame):
+    def _preprocess(self, frame: ndarray) -> Tensor:
         
         # frame is RGB-Channel
         frame = Image.fromarray(frame, 'RGB')
@@ -87,7 +92,7 @@ class DemoInference:
         
         return frame
     
-    def _build_and_load_tracker(self):
+    def _build_and_load_tracker(self) -> SiamMOT:
         tracker = build_siammot(self.cfg)
         tracker.to(self.device)
         checkpointer = DetectronCheckpointer(
@@ -103,7 +108,7 @@ class DemoInference:
         
         return tracker
     
-    def process(self, frame):
+    def process(self, frame: ndarray) -> BoxList:
         orig_h, orig_w, _ = frame.shape
         # frame should be RGB image
         frame = self._preprocess(frame)
@@ -117,7 +122,9 @@ class DemoInference:
         
         return results
     
-    def process_frame_sequence(self, frame_iterator):
+    def process_frame_sequence(
+        self, frame_iterator: Iterator[Any]
+    ) -> Iterator[Tuple[int32, BoxList]]:
         self.tracker.reset_siammot_status()
         for frame_id, frame in tqdm(frame_iterator):
             orig_frame = frame[:, :, ::-1]

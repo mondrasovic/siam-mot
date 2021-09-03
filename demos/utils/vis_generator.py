@@ -1,7 +1,10 @@
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from matplotlib import cm
+from numpy import ndarray
 
 
 class VisGenerator:
@@ -9,7 +12,7 @@ class VisGenerator:
     Generate a video for visualization
     """
     
-    def __init__(self, vis_height=None):
+    def __init__(self, vis_height: Optional[int] = None) -> None:
         """
         vis_height is the resolution of output frame
         """
@@ -22,7 +25,7 @@ class VisGenerator:
             'airplane', 'bus', 'train', 'truck', 'boat']
     
     @staticmethod
-    def get_n_colors(n, colormap="gist_ncar"):
+    def get_n_colors(n: int, colormap: str = "gist_ncar") -> ndarray:
         # Get n color samples from the colormap, derived from:
         # https://stackoverflow.com/a/25730396/583620
         # gist_ncar is the default colormap as it appears to have the highest
@@ -42,7 +45,9 @@ class VisGenerator:
         colors = colors[:, (2, 1, 0)] * 255
         return colors
     
-    def normalize_output(self, frame, results: BoxList):
+    def normalize_output(
+        self, frame: ndarray, results: BoxList
+    ) -> Tuple[ndarray, BoxList]:
         if self._vis_height is not None:
             boxlist_height = results.size[1]
             frame_height, frame_width = frame.shape[:2]
@@ -57,7 +62,7 @@ class VisGenerator:
         
         return frame, results
     
-    def frame_vis_generator(self, frame, results: BoxList):
+    def frame_vis_generator(self, frame: ndarray, results: BoxList) -> ndarray:
         frame, results = self.normalize_output(frame, results)
         ids = results.get_field('ids')
         results = results[ids >= 0]

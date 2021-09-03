@@ -138,7 +138,7 @@ def decode_response(
     scale_penalty = get_scale_penalty(tlbr, boxes)
     cos_window = get_cosine_window_penalty(tlbr)
     p_obj_confidence = (obj_confidence * scale_penalty) * (
-            1 - sigma) + sigma * cos_window
+        1 - sigma) + sigma * cos_window
     
     idxs = torch.argmax(p_obj_confidence, dim=1)
     

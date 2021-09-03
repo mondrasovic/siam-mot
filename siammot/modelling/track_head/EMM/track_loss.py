@@ -90,13 +90,13 @@ class EMMLossComputation(object):
         _b = tar_bbox[:, 3:4].float() - ys
         
         s1 = _l > self.pos_ratio * (
-                (tar_bbox[:, 2:3] - tar_bbox[:, 0:1]) / 2).float()
+            (tar_bbox[:, 2:3] - tar_bbox[:, 0:1]) / 2).float()
         s2 = _r > self.pos_ratio * (
-                (tar_bbox[:, 2:3] - tar_bbox[:, 0:1]) / 2).float()
+            (tar_bbox[:, 2:3] - tar_bbox[:, 0:1]) / 2).float()
         s3 = _t > self.pos_ratio * (
-                (tar_bbox[:, 3:4] - tar_bbox[:, 1:2]) / 2).float()
+            (tar_bbox[:, 3:4] - tar_bbox[:, 1:2]) / 2).float()
         s4 = _b > self.pos_ratio * (
-                (tar_bbox[:, 3:4] - tar_bbox[:, 1:2]) / 2).float()
+            (tar_bbox[:, 3:4] - tar_bbox[:, 1:2]) / 2).float()
         
         is_in_pos_boxes = s1 * s2 * s3 * s4
         cls_labels[is_in_pos_boxes == 1] = 1
@@ -173,4 +173,5 @@ class EMMLossComputation(object):
             reg_loss = 0. * box_regression_flatten.sum()
             centerness_loss = 0. * centerness_flatten.sum()
         
-        return self.loss_weight * cls_loss, self.loss_weight * reg_loss, self.loss_weight * centerness_loss
+        return self.loss_weight * cls_loss, self.loss_weight * reg_loss, \
+            self.loss_weight * centerness_loss

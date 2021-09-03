@@ -1,8 +1,10 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import cv2
+from numpy import int32, ndarray
 
 
 class VisWriter:
@@ -11,12 +13,16 @@ class VisWriter:
     """
     
     def __init__(
-        self, fps=None, dump_video=False, out_path=None, file_name=None
-    ):
+        self,
+        fps: Optional[int] = None,
+        dump_video: bool = False,
+        out_path: Optional[str] = None,
+        file_name: Optional[str] = None
+    ) -> None:
         if fps is None:
-            self._fps = 30
+            self._fps: int = 30
         else:
-            self._fps = fps
+            self._fps: int = fps
         
         self._dump_video = dump_video
         self._video_writer = None
@@ -36,7 +42,7 @@ class VisWriter:
         
         os.makedirs(self._output_path, exist_ok=True)
     
-    def _init_video_writer(self, frame_width, frame_height):
+    def _init_video_writer(self, frame_width: int, frame_height: int) -> None:
         self._video_path = os.path.join(self._output_path, self._file_name)
         self._video_writer = cv2.VideoWriter(
             str(self._video_path), cv2.VideoWriter_fourcc(*'avc1'), self._fps,
@@ -59,7 +65,7 @@ class VisWriter:
         subprocess.run(["rm", str(self._video_path)])
         subprocess.run(["mv", str(comp_video_path), self._video_path])
     
-    def dump_artifacts(self, frame, frame_id):
+    def dump_artifacts(self, frame: ndarray, frame_id: int32) -> None:
         height, width, _ = frame.shape
         
         if self._dump_video:
