@@ -90,7 +90,7 @@ def load_public_detection(cfg, dataset_key):
                     dataset_folder, 'annotation/anno_pub_detection.json'
                 )
             )
-                )
+        )
         
         return None
     

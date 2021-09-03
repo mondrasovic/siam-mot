@@ -7,6 +7,7 @@ from demos.utils.vis_generator import VisGenerator
 from demos.utils.vis_writer import VisWriter
 from demos.video_iterator import build_video_iterator
 
+
 parser = argparse.ArgumentParser(" SiamMOT Inference Demo")
 parser.add_argument(
     '--demo-video', metavar="FILE", type=str,

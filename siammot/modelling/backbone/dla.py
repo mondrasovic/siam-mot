@@ -503,7 +503,8 @@ BACKBONE_ARCH = {
 def dla(cfg):
     model = BACKBONE[cfg.MODEL.BACKBONE.CONV_BODY](cfg.MODEL.DLA.STAGE_WITH_DCN)
     
-    # Load the ImageNet pretrained backbone if no valid pre-trained model weights are given
+    # Load the ImageNet pretrained backbone if no valid pre-trained model
+    # weights are given
     if not os.path.exists(cfg.MODEL.WEIGHT):
         state_dict = load_state_dict_from_url(
             model_urls[BACKBONE_ARCH[cfg.MODEL.BACKBONE.CONV_BODY]],

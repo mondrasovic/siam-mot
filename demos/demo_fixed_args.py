@@ -1,12 +1,12 @@
 import logging
 import os
+from dataclasses import dataclass
 
 from demos.demo_inference import DemoInference
 from demos.utils.vis_generator import VisGenerator
 from demos.utils.vis_writer import VisWriter
 from demos.video_iterator import build_video_iterator
 
-from dataclasses import dataclass
 
 if __name__ == '__main__':
     @dataclass(frozen=True)
@@ -16,6 +16,7 @@ if __name__ == '__main__':
         dump_video: bool = False
         output_path: str = "E:/siammot_sandbox/tracking_vis"
         demo_video: str = "E:/interreg_sample.mp4"
+    
     
     args = Args()
     

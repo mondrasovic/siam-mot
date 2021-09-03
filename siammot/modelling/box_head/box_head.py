@@ -73,7 +73,8 @@ class ROIBoxHead(torch.nn.Module):
 def build_roi_box_head(cfg, in_channels):
     """
     Constructs a new box head.
-    By default, uses ROIBoxHead, but if it turns out not to be enough, just register a new class
+    By default, uses ROIBoxHead, but if it turns out not to be enough,
+    just register a new class
     and make it a parameter in the config
     """
     return ROIBoxHead(cfg, in_channels)
