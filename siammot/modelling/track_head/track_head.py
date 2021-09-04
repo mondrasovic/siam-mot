@@ -22,11 +22,11 @@ class TrackHead(torch.nn.Module):
     ) -> None:
         super(TrackHead, self).__init__()
         
-        self.tracker = tracker
-        self.sampler = tracker_sampler
+        self.tracker: EMM = tracker
+        self.sampler: EMMTargetSampler = tracker_sampler
         
-        self.track_utils = track_utils
-        self.track_pool = track_pool
+        self.track_utils: TrackUtils = track_utils
+        self.track_pool: TrackPool = track_pool
     
     def forward(
         self,
@@ -108,7 +108,6 @@ class TrackHead(torch.nn.Module):
             track_memory = self.tracker.extract_cache(features, active_tracks)
         
         track_memory = self._update_memory_with_dormant_track(track_memory)
-        
         self.track_pool.update_cache(track_memory)
         
         return track_memory

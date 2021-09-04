@@ -18,8 +18,7 @@ from .track_head.track_utils import build_track_utils
 class CombinedROIHeads(torch.nn.ModuleDict):
     """
     Combines a set of individual heads (for box prediction or masks) into a
-    single
-    head.
+    single head.
     """
     
     def __init__(
