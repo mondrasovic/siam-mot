@@ -1,7 +1,10 @@
+from typing import Dict, Set, Tuple, Optional
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 from maskrcnn_benchmark.structures.bounding_box import BoxList
+from yacs.config import CfgNode
 
 
 class TrackUtils(object):
@@ -9,7 +12,12 @@ class TrackUtils(object):
     A class that includes utility functions unique to track branch
     """
     
-    def __init__(self, search_expansion=1.0, min_search_wh=128, pad_pixels=256):
+    def __init__(
+        self,
+        search_expansion: float = 1.0,
+        min_search_wh: int = 128,
+        pad_pixels: int = 256
+    ) -> None:
         """
         :param search_expansion: expansion ratio (of the search region)
         w.r.t the size of tracking targets
@@ -19,9 +27,9 @@ class TrackUtils(object):
         feature map pf search region and that of template target in the same
         scale
         """
-        self.search_expansion = search_expansion
-        self.min_search_wh = min_search_wh
-        self.pad_pixels = pad_pixels
+        self.search_expansion: float = search_expansion
+        self.min_search_wh: int = min_search_wh
+        self.pad_pixels: int = pad_pixels
     
     @staticmethod
     def swap_pairs(entity_list):
@@ -151,22 +159,25 @@ class TrackPool(object):
     """
     
     def __init__(
-        self, active_ids=None, max_entangle_length=10, max_dormant_frames=1
-    ):
+        self,
+        active_ids: Optional[Set[int]] = None,
+        max_entangle_length: int = 10,
+        max_dormant_frames: int = 1
+    ) -> None:
         if active_ids is None:
-            self._active_ids = set()
+            self._active_ids: Set[int] = set()
             # track ids that are killed up to previous frames
-            self._dormant_ids = {}
+            self._dormant_ids: Dict[int, int] = {}
             # track ids that are killed in current frame
-            self._kill_ids = set()
-            self._max_id = -1
+            self._kill_ids: Set[int] = set()
+            self._max_id: int = -1
         self._embedding = None
         self._cache = {}
-        self._frame_idx = 0
-        self._max_dormant_frames = max_dormant_frames
-        self._max_entangle_length = max_entangle_length
+        self._frame_idx: int = 0
+        self._max_dormant_frames: int = max_dormant_frames
+        self._max_entangle_length: int = max_entangle_length
     
-    def suspend_track(self, track_id):
+    def suspend_track(self, track_id: int) -> None:
         """
         Suspend an active track, and add it to dormant track pools
         """
@@ -176,7 +187,7 @@ class TrackPool(object):
         self._active_ids.remove(track_id)
         self._dormant_ids[track_id] = self._frame_idx - 1
     
-    def expire_tracks(self):
+    def expire_tracks(self) -> None:
         """
         Expire the suspended tracks after they are inactive
         for a consecutive self._max_dormant_frames frames
@@ -187,10 +198,10 @@ class TrackPool(object):
                 self._kill_ids.add(track_id)
                 self._cache.pop(track_id, None)
     
-    def increment_frame(self, value=1):
+    def increment_frame(self, value: int = 1) -> None:
         self._frame_idx += value
     
-    def update_cache(self, cache):
+    def update_cache(self, cache) -> None:
         """
         Update the latest position (bbox) / search region / template feature
         for each track in the cache
@@ -209,7 +220,7 @@ class TrackPool(object):
             track_id = box.get_field("ids").item()
             self._cache[track_id] = (features, search_region, box)
     
-    def resume_track(self, track_id):
+    def resume_track(self, track_id: int) -> None:
         """
         Resume a dormant track
         """
@@ -220,7 +231,7 @@ class TrackPool(object):
         self._active_ids.add(track_id)
         self._dormant_ids.pop(track_id)
     
-    def kill_track(self, track_id):
+    def kill_track(self, track_id: int) -> None:
         """
         Kill a track
         """
@@ -231,7 +242,7 @@ class TrackPool(object):
         self._kill_ids.add(track_id)
         self._cache.pop(track_id, None)
     
-    def start_track(self):
+    def start_track(self) -> int:
         """
         Return a new track id, when starting a new track
         """
@@ -250,7 +261,7 @@ class TrackPool(object):
     def get_cache(self):
         return self._cache
     
-    def activate_tracks(self, track_id):
+    def activate_tracks(self, track_id: int) -> None:
         if track_id in self._active_ids or \
             track_id not in self._dormant_ids:
             raise ValueError
@@ -258,7 +269,7 @@ class TrackPool(object):
         self._active_ids.add(track_id)
         self._dormant_ids.pop(track_id)
     
-    def reset(self):
+    def reset(self) -> None:
         self._active_ids = set()
         self._kill_ids = set()
         self._dormant_ids = {}
@@ -268,7 +279,7 @@ class TrackPool(object):
         self._frame_idx = 0
 
 
-def build_track_utils(cfg):
+def build_track_utils(cfg: CfgNode) -> Tuple[TrackUtils, TrackPool]:
     search_expansion = cfg.MODEL.TRACK_HEAD.SEARCH_REGION - 1.
     pad_pixels = cfg.MODEL.TRACK_HEAD.PAD_PIXELS
     min_search_wh = cfg.MODEL.TRACK_HEAD.MINIMUM_SREACH_REGION

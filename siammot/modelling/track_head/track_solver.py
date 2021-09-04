@@ -2,24 +2,28 @@ import torch
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
+from yacs.config import CfgNode
+
+from siammot.modelling.track_head.track_utils import TrackPool
 
 
 class TrackSolver(torch.nn.Module):
     def __init__(
         self,
-        track_pool,
-        track_thresh=0.3,
-        start_track_thresh=0.5,
-        resume_track_thresh=0.4,
-    ):
+        track_pool: TrackPool,
+        track_thresh: float = 0.3,
+        start_track_thresh: float = 0.5,
+        resume_track_thresh: float = 0.4,
+    ) -> None:
         super(TrackSolver, self).__init__()
         
-        self.track_pool = track_pool
-        self.track_thresh = track_thresh
-        self.start_thresh = start_track_thresh
-        self.resume_track_thresh = resume_track_thresh
+        self.track_pool: TrackPool = track_pool
+        self.track_thresh: float = track_thresh
+        self.start_thresh: float = start_track_thresh
+        self.resume_track_thresh: float = resume_track_thresh
     
-    def get_nms_boxes(self, detection):
+    @staticmethod
+    def get_nms_boxes(detection: BoxList):
         detection = boxlist_nms(detection, nms_thresh=0.5)
         
         _ids = detection.get_field('ids')
@@ -118,7 +122,7 @@ class TrackSolver(torch.nn.Module):
         return [combined_detection]
 
 
-def build_tracker_solver(cfg, track_pool):
+def build_tracker_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
     return TrackSolver(
         track_pool,
         cfg.MODEL.TRACK_HEAD.TRACK_THRESH,
