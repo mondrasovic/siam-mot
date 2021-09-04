@@ -1,4 +1,4 @@
-from typing import Dict, Set, Tuple, Optional
+from typing import Dict, Optional, Set, Tuple
 
 import numpy as np
 import torch
