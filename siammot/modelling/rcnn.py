@@ -48,7 +48,6 @@ class SiamMOT(nn.Module):
         targets: None = None,
         given_detection: None = None
     ) -> List[BoxList]:
-        
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
         
