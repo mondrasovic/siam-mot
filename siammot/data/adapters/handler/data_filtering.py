@@ -19,15 +19,15 @@ def build_data_filter_fn(dataset_key: str, *args, **kwargs):
 
 
 class BaseFilter:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
     
     # the default filter does not filter any entity, which is technically
     # doing nothing
-    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None):
+    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         raise False
     
-    def filter(self, entity: AnnoEntity, ignored_gt_entities=None):
+    def filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         return self._filter(entity, ignored_gt_entities)
     
     def __call__(
@@ -64,7 +64,7 @@ class CRPFilter(BaseFilter):
         ignored ground truth entity
         """
     
-    def __init__(self, iou_thresh=0.2, is_train=False):
+    def __init__(self, iou_thresh=0.2, is_train=False) -> None:
         """
         :param iou_thresh: a predicted entity which overlaps with any ignored
         gt entity with at least
@@ -72,7 +72,7 @@ class CRPFilter(BaseFilter):
         """
         self.iou_thresh = iou_thresh
     
-    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None):
+    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             if entity.id < 0:
                 return True
@@ -91,12 +91,17 @@ class MOTFilter(BaseFilter):
     ignored ground truth entity
     """
     
-    def __init__(self, visibility_thresh=0.1, iou_thresh=0.5, is_train=False):
+    def __init__(
+        self,
+        visibility_thresh=0.1,
+        iou_thresh=0.5,
+        is_train=False
+    ) -> None:
         self.visibility_thresh = visibility_thresh
         self.iou_thresh = iou_thresh
         self.is_train = is_train
     
-    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None):
+    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             if self.is_train:
                 # any entity whose visibility is below the pre-defined
@@ -126,12 +131,12 @@ class AOTFilter(BaseFilter):
     
     def __init__(
         self, range_distance_thresh=1200, iou_thresh=0.2, is_train=False
-    ):
+    ) -> None:
         self.range_distance_thresh = range_distance_thresh
         self.iou_thresh = iou_thresh
         self.is_train = is_train
     
-    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None):
+    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             range_distance_m = np.inf
             if 'range_distance_m' in entity.blob:
