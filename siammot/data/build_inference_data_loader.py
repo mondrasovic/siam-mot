@@ -55,7 +55,10 @@ def build_video_loader(cfg, video: DataSample, transforms):
         video, clip_len=clip_len, transforms=transforms
     )
     videoloader = data.DataLoader(
-        videodata, num_workers=4, batch_size=1, shuffle=False
+        videodata,
+        num_workers=cfg.DATALOADER.NUM_WORKERS,
+        batch_size=1,
+        shuffle=False
     )
     
     return videoloader

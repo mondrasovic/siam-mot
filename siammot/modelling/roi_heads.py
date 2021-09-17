@@ -68,6 +68,8 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
                 
+                # TODO Implement registering current detections.
+
                 detections = self.solver(detections)
                 
                 # get the current state for tracking

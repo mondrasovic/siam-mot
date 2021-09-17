@@ -269,6 +269,9 @@ class TrackPool(object):
         self._active_ids.add(track_id)
         self._dormant_ids.pop(track_id)
     
+    def get_last_active_frame_idx(self, track_id: int) -> int:
+        return self._dormant_ids[track_id]
+    
     def reset(self) -> None:
         self._active_ids = set()
         self._kill_ids = set()
