@@ -1,6 +1,7 @@
 """
 Implements the Generalized R-CNN for SiamMOT
 """
+from siammot.modelling.reid.reid_man import ReIdManager
 from typing import List, Optional, Tuple
 
 from maskrcnn_benchmark.modeling.rpn.rpn import build_rpn
@@ -11,6 +12,7 @@ from yacs.config import CfgNode
 
 from .backbone.backbone_ext import build_backbone
 from .roi_heads import build_roi_heads
+from siammot.modelling.reid.reid_man import build_reid_manager, ReIdManager
 
 
 class SiamMOT(nn.Module):
@@ -31,6 +33,8 @@ class SiamMOT(nn.Module):
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
         
         self.track_memory = None
+
+        self.reid_man: ReIdManager = build_reid_manager(cfg)
     
     def flush_memory(
         self,
@@ -52,7 +56,7 @@ class SiamMOT(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
-        # TODO Implement registering image.
+        self.reid_man.add_next_frame(images)
         features = self.backbone(images.tensors)
         proposals, proposal_losses = self.rpn(images, features, targets)
         

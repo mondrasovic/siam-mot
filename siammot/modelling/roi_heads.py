@@ -1,3 +1,4 @@
+from siammot.modelling import reid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -14,6 +15,8 @@ from .track_head.track_head import build_track_head
 from .track_head.track_solver import build_tracker_solver
 from .track_head.track_utils import build_track_utils
 
+from siammot.modelling.reid.reid_man import build_reid_manager, ReIdManager
+
 
 class CombinedROIHeads(torch.nn.ModuleDict):
     """
@@ -29,6 +32,8 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     ) -> None:
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()
+
+        self.reid_man: ReIdManager = build_reid_manager(cfg)
     
     def forward(
         self,
@@ -68,9 +73,11 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
                 
-                # TODO Implement registering current detections.
+                self.reid_man.add_next_boxes(detections[0])
 
                 detections = self.solver(detections)
+
+                self.reid_man.preview_current_frame()
                 
                 # get the current state for tracking
                 x = self.track.get_track_memory(features, detections)
