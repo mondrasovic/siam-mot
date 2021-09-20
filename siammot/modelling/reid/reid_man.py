@@ -12,6 +12,15 @@ from yacs.config import CfgNode
 
 from siammot.modelling.reid.singleton import Singleton
 
+from siammot.modelling.reid.model import build_model as build_reid_model
+from siammot.modelling.reid.dataset import get_trm as get_reid_trm
+from siammot.modelling.reid.config import cfg as cfg_reid
+from siammot.modelling.reid.model.baseline import Baseline as ReidBaseline
+
+
+_instance = None
+_reid_config_file_path = "./configs/reid/market_1501.yml"
+
 
 def draw_box(
     img: np.ndarray,
@@ -30,14 +39,19 @@ def draw_box(
     )
 
 
-class ReIdManager(metaclass=Singleton):
+class ReIdManager:
     def __init__(
         self,
+        reid_baseline: ReidBaseline,
+        reid_transform,
         pixel_mean: Sequence[float],
         pixel_std: Sequence[float],
-        max_dormant_frames: int
+        max_dormant_frames: int = 100,
     ) -> None:
         assert max_dormant_frames > 0
+
+        self._reid_baseline = reid_baseline
+        self._reid_transform = reid_transform
 
         self._pixel_mean = pixel_mean
         self._pixel_std = pixel_std
@@ -92,9 +106,28 @@ class ReIdManager(metaclass=Singleton):
 
 
 def build_reid_manager(cfg: CfgNode) -> ReIdManager:
-    reid_man = ReIdManager(
-        cfg.INPUT.PIXEL_MEAN,
-        cfg.INPUT.PIXEL_STD,
-        cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES
-    )
-    return reid_man
+    global _instance
+
+    if not _instance:
+        global _reid_config_file_path
+
+        cfg_reid.merge_from_file(_reid_config_file_path)
+        cfg_reid.freeze()
+
+        baseline = build_reid_model(cfg_reid)
+        param_dict = torch.load(cfg_reid.TEST.WEIGHT)
+        baseline.load_state_dict(param_dict)
+        baseline.cuda()
+        baseline.eval()
+
+        transform = get_reid_trm(cfg_reid, is_train=False)
+
+        _instance = ReIdManager(
+            baseline,
+            transform,
+            cfg.INPUT.PIXEL_MEAN,
+            cfg.INPUT.PIXEL_STD,
+            cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES
+        )
+    
+    return _instance
