@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
@@ -38,7 +40,7 @@ class TrackSolver(torch.nn.Module):
         
         return detection, _ids, _scores
     
-    def forward(self, detection: [BoxList]):
+    def forward(self, detection: List[BoxList]):
         """
         The solver is to merge predictions from detection branch as well as
         from track branch.
