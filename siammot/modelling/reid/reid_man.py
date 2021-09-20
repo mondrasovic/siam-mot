@@ -50,7 +50,7 @@ class ReIdManager:
     ) -> None:
         assert max_dormant_frames > 0
 
-        self._reid_baseline = reid_baseline
+        self._reid_baseline: ReidBaseline = reid_baseline
         self._reid_transform = reid_transform
 
         self._pixel_mean = pixel_mean
