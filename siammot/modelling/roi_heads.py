@@ -12,7 +12,7 @@ from siammot.modelling.track_head.track_head import TrackHead
 from siammot.modelling.track_head.track_solver import TrackSolver
 from .box_head.box_head import build_roi_box_head
 from .track_head.track_head import build_track_head
-from .track_head.track_solver import build_tracker_solver
+from .track_head.track_solver import build_track_solver
 from .track_head.track_utils import build_track_utils
 
 from siammot.modelling.reid.reid_man import build_reid_manager, ReIdManager
@@ -77,7 +77,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
 
                 detections = self.solver(detections)
 
-                self.reid_man.preview_current_frame()
+                # self.reid_man.preview_current_frame()
                 
                 # get the current state for tracking
                 x = self.track.get_track_memory(features, detections)
@@ -128,15 +128,15 @@ def build_roi_heads(cfg: CfgNode, in_channels: int) -> CombinedROIHeads:
     # individually create the heads, that will be combined together
     roi_heads = []
     if not cfg.MODEL.RPN_ONLY:
-        roi_heads.append(("box", build_roi_box_head(cfg, in_channels)))
+        roi_heads.append(('box', build_roi_box_head(cfg, in_channels)))
     if cfg.MODEL.TRACK_ON:
         track_utils, track_pool = build_track_utils(cfg)
         roi_heads.append(
-            ("track", build_track_head(cfg, track_utils, track_pool))
+            ('track', build_track_head(cfg, track_utils, track_pool))
         )
         # solver is a non-learnable layer that would only be used during
         # inference
-        roi_heads.append(("solver", build_tracker_solver(cfg, track_pool)))
+        roi_heads.append(('solver', build_track_solver(cfg, track_pool)))
     
     # combine individual heads in a single module
     if roi_heads:

@@ -1,6 +1,7 @@
 import collections
 
-from typing import Deque, Sequence
+from typing import Deque, Sequence, Optional
+from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 
 import torch
 import numpy as np
@@ -87,11 +88,18 @@ class ReIdManager:
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-    def calc_cos_sim_matrix(
-        self
+    def calc_cosine_sim_matrix(
+        self,
+        boxes_1: BoxList,
+        frame_indices_1: Optional[Sequence[int]],
+        boxes_2: BoxList,
+        frame_indices_2: Optional[Sequence[int]]
     ) -> torch.Tensor:
-        raise NotImplementedError  # TODO Implement computing cos. sim.
-    
+        assert (not frame_indices_1) or (len(boxes_1) == len(frame_indices_1))
+        assert (not frame_indices_2) or (len(boxes_2) == len(frame_indices_2))
+
+        raise NotImplementedError
+
     def _img_tensor_to_cv(self, img: torch.Tensor) -> np.ndarray:
         assert img.ndim == 4
         assert len(img) == 1

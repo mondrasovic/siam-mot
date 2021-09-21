@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import torch
@@ -71,7 +71,7 @@ class TrackUtils(object):
         
         return shuffle_f
     
-    def extend_bbox(self, in_box: [BoxList]):
+    def extend_bbox(self, in_box: List[BoxList]):
         """
         Extend the bounding box to define the search region
         :param in_box: a set of bounding boxes in previous frame
@@ -124,7 +124,7 @@ class TrackUtils(object):
         
         return pad_f
     
-    def update_boxes_in_pad_images(self, boxlists: [BoxList]):
+    def update_boxes_in_pad_images(self, boxlists: List[BoxList]):
         """
         Update the coordinates of bounding boxes in the padded image
         """
