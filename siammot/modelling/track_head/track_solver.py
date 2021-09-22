@@ -60,7 +60,7 @@ class TrackSolver(torch.nn.Module):
 
         # TODO Make NMS and similarity threshold parametric via configuration.
         nms_thresh = 0.5
-        sim_thresh = 0.7
+        sim_thresh = 0.4
 
         detections = detections[0]
         if len(detections) == 0:
@@ -94,13 +94,11 @@ class TrackSolver(torch.nn.Module):
         dormant_detections = _subset(detections, dormant_mask)
 
         # We need frame indices to access previously processed frames.
-        dormant_frame_idxs = []
-        for dormant_id in dormant_detections.get_field('ids'):
-            last_frame_idx = self.track_pool.get_last_active_frame_idx(
-                dormant_id.item()
-            )
-            dormant_frame_idxs.append(last_frame_idx)
-        
+        dormant_frame_idxs = [
+            self.track_pool.get_last_active_frame_idx(id_.item())
+            for id_ in dormant_detections.get_field('ids')
+        ]
+                
         # Compute similarity values based on the cosine similarity between the
         # embedding vectors obtained via the ReID model.
         cos_sim_matrix = self.reid_man.calc_cosine_sim_matrix(
@@ -110,16 +108,13 @@ class TrackSolver(torch.nn.Module):
             dormant_frame_idxs
         )
 
-        # Convert the similarity scores from <-1, 1> interval into the <0, 1>.
-        cos_sim_matrix = cos_sim_matrix.cpu().numpy()
-        cos_sim_matrix = 1 - (np.arcos(cos_sim_matrix) / np.pi)
-
         # Solve the "linear sum assignment problem" using optimization.
+        cos_sim_matrix = cos_sim_matrix.cpu().numpy()
         row_idxs, col_idxs = linear_sum_assignment(-cos_sim_matrix)
 
         # Obtain exact indices of the unassigned and the dormant detections.
-        unassigned_idxs = torch.where(unassigned_mask)[0]
-        dormant_idxs = torch.where(dormant_mask)[0]
+        unassigned_idxs, _ = torch.where(unassigned_mask)
+        dormant_idxs, _ = torch.where(dormant_mask)
 
         # Initialize a mask for all the preserved detections. The detections
         # that were dormant but will end up assigned in this stage will have to
@@ -146,7 +141,7 @@ class TrackSolver(torch.nn.Module):
 
         # Detections that haven't been assigned yet while their score is high
         # will be used to initialize new tracks.
-        start_idxs = torch.where((ids_ < 0) & (scores_ >= self.start_thresh))[0]
+        start_idxs, _ = torch.where((ids_ < 0) & (scores_ >= self.start_thresh))
 
         for idx in start_idxs:
             ids_[idx] = self.track_pool.start_track()
@@ -154,7 +149,7 @@ class TrackSolver(torch.nn.Module):
         # Inactive tracks are the ones which have their score below a threshold
         # and the ID has already been assigned.
         inactive_mask = (ids_ >= 0) & (scores_ < self.track_thresh)
-        inactive_idxs = torch.where(inactive_mask)[0]
+        inactive_idxs, _ = torch.where(inactive_mask)
 
         for idx in inactive_idxs:
             self.track_pool.suspend_track(ids_[idx].item())
