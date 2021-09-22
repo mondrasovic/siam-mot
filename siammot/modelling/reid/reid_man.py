@@ -1,18 +1,20 @@
 import collections
+import functools
+import itertools
 
-from typing import Deque, Sequence, Optional
-from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
+from typing import Deque, Sequence, Optional, Tuple
 
 import torch
 import numpy as np
 import cv2 as cv
 
+from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.image_list import ImageList
 from yacs.config import CfgNode
+from PIL import Image
 
 from siammot.modelling.reid.singleton import Singleton
-
 from siammot.modelling.reid.model import build_model as build_reid_model
 from siammot.modelling.reid.dataset import get_trm as get_reid_trm
 from siammot.modelling.reid.config import cfg as cfg_reid
@@ -41,6 +43,8 @@ def draw_box(
 
 
 class ReIdManager:
+    EMB_LRU_CACHE_SIZE = 256
+
     def __init__(
         self,
         reid_baseline: ReidBaseline,
@@ -98,7 +102,30 @@ class ReIdManager:
         assert (not frame_indices_1) or (len(boxes_1) == len(frame_indices_1))
         assert (not frame_indices_2) or (len(boxes_2) == len(frame_indices_2))
 
-        raise NotImplementedError
+        assert len(self._frames) > 0
+        assert len(self._frames) == len(self._boxes)
+    
+    def _calc_embedding(
+        self,
+        frame_idx: int,
+        int_box: Tuple[int]
+    ) -> torch.Tensor:
+        pass
+
+    @functools.lru_cache(maxsize=64)
+    def _frame_to_pil(self, frame_idx: int) -> Image.Image:
+        pass
+
+    def _img_tensor_to_pil(self, img: torch.Tensor) -> Image.Image:
+        assert img.ndim == 4
+        assert len(img) == 1
+
+        img = img.cpu().detach().squeeze(0).numpy()  # [3, H, W]
+        img = img.transpose(1, 2, 0)  # [H, W, 3]
+        img = Image.fromarray(img)
+
+        return img
+ 
 
     def _img_tensor_to_cv(self, img: torch.Tensor) -> np.ndarray:
         assert img.ndim == 4

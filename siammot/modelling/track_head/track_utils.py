@@ -171,11 +171,14 @@ class TrackPool(object):
             # track ids that are killed in current frame
             self._kill_ids: Set[int] = set()
             self._max_id: int = -1
-        self._embedding = None
         self._cache = {}
         self._frame_idx: int = 0
         self._max_dormant_frames: int = max_dormant_frames
         self._max_entangle_length: int = max_entangle_length
+    
+    @property
+    def frame_idx(self) -> int:
+        return self._frame_idx
     
     def suspend_track(self, track_id: int) -> None:
         """
@@ -276,7 +279,6 @@ class TrackPool(object):
         self._active_ids = set()
         self._kill_ids = set()
         self._dormant_ids = {}
-        self._embedding = None
         self._cache = {}
         self._max_id = -1
         self._frame_idx = 0
