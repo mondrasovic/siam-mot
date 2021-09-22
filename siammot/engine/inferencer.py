@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 import torch
+from PIL import Image
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import DataSample
 from tqdm import tqdm
 
@@ -15,10 +16,30 @@ from ..utils.boxlists_to_entities import (
     boxlists_to_entities,
     convert_given_detections_to_boxlist,
 )
+from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager
+
+
+def build_inverse_tensor_to_pil_transform(cfg):
+    pixel_mean = cfg.INPUT.PIXEL_MEAN
+    pixel_std = cfg.INPUT.PIXEL_STD
+
+    def _img_tensor_to_pil(img: torch.Tensor) -> Image.Image:
+        img = img.cpu().detach().numpy()  # [3, H, W]
+        img = img.transpose(1, 2, 0)  # [H, W, 3]
+        img = (((img * pixel_std) + pixel_mean) * 255).round()
+        img = img.astype(np.uint8)
+        img = Image.fromarray(img)
+
+        return img
+    
+    return _img_tensor_to_pil
 
 
 def do_inference(
-    cfg, model, sample: DataSample, transforms=None,
+    cfg,
+    model,
+    sample: DataSample,
+    transforms=None,
     given_detection: DataSample = None
 ) -> DataSample:
     """
@@ -37,6 +58,10 @@ def do_inference(
     model.eval()
     gpu_device = torch.device('cuda')
     
+    reid_manager = build_or_get_existing_reid_manager(cfg)
+    reid_manager.reset()
+    inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
+
     video_loader = build_video_loader(cfg, sample, transforms)
     
     sample_result = DataSample(
@@ -47,7 +72,10 @@ def do_inference(
         frame_id = frame_id.item()
         timestamps = torch.squeeze(timestamps, dim=0).tolist()
         video_clip = torch.squeeze(video_clip, dim=0)
-        
+
+        frame_orig = inverse_img_transform(video_clip)
+        reid_manager.add_next_frame(frame_orig)
+
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
         # the public detection needs to be ingested to DataSample
@@ -141,7 +169,6 @@ class DatasetInference(object):
         return ap, ap_str_summary
     
     def _eval_clear_mot(self):
-        
         motmetric, motstrsummary = eval_clears_mot(
             self._dataset, self.results,
             data_filter_fn=self._data_filter_fn
@@ -174,22 +201,24 @@ class DatasetInference(object):
         """
         track_ids = set()
         for _entity in tracks.entities:
-            if _entity.id not in track_ids and _entity.id >= 0:
+            if (_entity.id not in track_ids) and (_entity.id >= 0):
                 track_ids.add(_entity.id)
         
         filter_tracks = tracks.get_copy_without_entities()
         for _id in track_ids:
             _id_entities = tracks.get_entities_with_id(_id)
             _track_conf = np.mean([_e.confidence for _e in _id_entities])
-            if len(_id_entities) >= self._track_len \
-                and _track_conf >= self._track_conf:
+            if (
+                (len(_id_entities) >= self._track_len) and
+                (_track_conf >= self._track_conf)
+            ):
                 for _entity in _id_entities:
                     filter_tracks.add_entity(_entity)
         return filter_tracks
     
     def __call__(self):
-        # todo: enable the inference in an efficient distributed framework
-        for (sample_id, sample) in tqdm(self._dataset):
+        # TODO: Enable the inference in an efficient distributed framework.
+        for _, sample in tqdm(self._dataset):
             # clean up the memory
             self._model.reset_siammot_status()
             
@@ -201,11 +230,9 @@ class DatasetInference(object):
         self._logger.info(
             "\n---------------- Start evaluating ----------------\n"
         )
-        motmetric, motstrsummary = self._eval_clear_mot()
+        _, motstrsummary = self._eval_clear_mot()
         self._logger.info(motstrsummary)
         
-        # ap, ap_str_summary = self._eval_det_ap()
-        # self._logger.info(ap_str_summary)
         self._logger.info(
             "\n---------------- Finish evaluating ----------------\n"
         )

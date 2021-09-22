@@ -12,7 +12,7 @@ from yacs.config import CfgNode
 
 from .backbone.backbone_ext import build_backbone
 from .roi_heads import build_roi_heads
-from siammot.modelling.reid.reid_man import build_reid_manager, ReIdManager
+from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager, ReIdManager
 
 
 class SiamMOT(nn.Module):
@@ -34,8 +34,6 @@ class SiamMOT(nn.Module):
         
         self.track_memory = None
 
-        self.reid_man: ReIdManager = build_reid_manager(cfg)
-    
     def flush_memory(
         self,
         cache: Optional[Tuple[Tensor, List[BoxList], List[BoxList]]] = None
@@ -56,7 +54,6 @@ class SiamMOT(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
-        self.reid_man.add_next_frame(images)
         features = self.backbone(images.tensors)
         proposals, proposal_losses = self.rpn(images, features, targets)
         

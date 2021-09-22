@@ -80,6 +80,12 @@ class TrackHead(torch.nn.Module):
                 )
         return {}, track_boxes, {}
     
+    def reset_track_pool(self):
+        """
+        Reset the track pool
+        """
+        self.track_pool.reset()
+    
     def get_track_memory(
         self,
         features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],

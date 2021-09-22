@@ -9,7 +9,7 @@ from yacs.config import CfgNode
 from scipy.optimize import linear_sum_assignment
 
 from siammot.modelling.track_head.track_utils import TrackPool
-from siammot.modelling.reid.reid_man import ReIdManager, build_reid_manager
+from siammot.modelling.reid.reid_man import ReIdManager, build_or_get_existing_reid_manager
 
 
 def boxlist_select_tensor_subset(boxlist: BoxList, mask) -> BoxList:
@@ -167,7 +167,7 @@ class TrackSolver(torch.nn.Module):
 
 
 def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
-    reid_man = build_reid_manager(cfg)
+    reid_man = build_or_get_existing_reid_manager(cfg)
     track_solver = TrackSolver(
         track_pool,
         reid_man,

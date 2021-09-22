@@ -57,15 +57,15 @@ def test(cfg, args, output_dir):
     model_file = args.model_file
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=model_file)
     if os.path.isfile(model_file):
-        _ = checkpointer.load(model_file)
+        checkpointer.load(model_file)
     elif os.path.isdir(model_file):
-        _ = checkpointer.load(use_latest=True)
+        checkpointer.load(use_latest=True)
     else:
         raise KeyError("No checkpoint is found")
     
     # Load testing dataset
     dataset_key = args.test_dataset
-    dataset, modality = load_dataset_anno(cfg, dataset_key, args.set)
+    dataset, _ = load_dataset_anno(cfg, dataset_key, args.set)
     dataset = sorted(dataset)
     
     # do inference on dataset

@@ -2,19 +2,16 @@ import collections
 import functools
 import itertools
 
-from typing import Deque, Sequence, Optional, Tuple
+from typing import Deque, Sequence, Tuple
 
 import torch
 import numpy as np
 import cv2 as cv
 
-from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.structures.bounding_box import BoxList
-from maskrcnn_benchmark.structures.image_list import ImageList
 from yacs.config import CfgNode
 from PIL import Image
 
-from siammot.modelling.reid.singleton import Singleton
 from siammot.modelling.reid.model import build_model as build_reid_model
 from siammot.modelling.reid.dataset import get_trm as get_reid_trm
 from siammot.modelling.reid.config import cfg as cfg_reid
@@ -43,14 +40,12 @@ def draw_box(
 
 
 class ReIdManager:
-    EMB_LRU_CACHE_SIZE = 256
+    EMB_LRU_CACHE_SIZE = 1024
 
     def __init__(
         self,
         reid_baseline: ReidBaseline,
         reid_transform,
-        pixel_mean: Sequence[float],
-        pixel_std: Sequence[float],
         max_dormant_frames: int = 100,
     ) -> None:
         assert max_dormant_frames > 0
@@ -58,79 +53,75 @@ class ReIdManager:
         self._reid_baseline: ReidBaseline = reid_baseline
         self._reid_transform = reid_transform
 
-        self._pixel_mean = pixel_mean
-        self._pixel_std = pixel_std
-
-        self._frames: Deque[torch.Tensor] = collections.deque(
+        self._frames: Deque[Image.Image] = collections.deque(
             maxlen=max_dormant_frames
         )
-        self._boxes: Deque[BoxList] = collections.deque(
-            maxlen=max_dormant_frames
-        )
-    
-    def add_next_frame(self, frame: ImageList) -> None:
-        assert frame.tensors.ndim == 4
-        assert len(frame.tensors) == 1
-        assert len(frame.image_sizes) == 1
+        self._curr_frame_idx: int = 0
+   
+    def add_next_frame(self, frame: Image.Image) -> None:
+        self._frames.append(frame)
+        self._curr_frame_idx += 1
 
-        self._frames.append(frame.tensors)
-
-    def add_next_boxes(self, boxes: BoxList) -> None:
-        self._boxes.append(boxes)
-    
     def preview_current_frame(self) -> None:
-        frame = self._frames[-1]
+        frame = self._get_frame()
         frame = self._img_tensor_to_cv(frame)
 
-        boxes = self._boxes[-1].bbox.cpu().detach().numpy()
-        boxes = boxes.round().astype(np.int)
-
-        for box in boxes:
-            draw_box(frame, box)
-        
         cv.imshow("Preview", frame)
         cv.waitKey(0)
         cv.destroyAllWindows()
 
     def calc_cosine_sim_matrix(
         self,
+        frame_idxs_1: Sequence[int],
         boxes_1: BoxList,
-        frame_indices_1: Optional[Sequence[int]],
-        boxes_2: BoxList,
-        frame_indices_2: Optional[Sequence[int]]
+        frame_idxs_2: Sequence[int],
+        boxes_2: BoxList
     ) -> torch.Tensor:
-        assert (not frame_indices_1) or (len(boxes_1) == len(frame_indices_1))
-        assert (not frame_indices_2) or (len(boxes_2) == len(frame_indices_2))
+        assert (not frame_idxs_1) or (len(boxes_1) == len(frame_idxs_1))
+        assert (not frame_idxs_2) or (len(boxes_2) == len(frame_idxs_2))
+        assert boxes_1.mode == 'xyxy' and boxes_2.mode == 'xyxy'
 
-        assert len(self._frames) > 0
-        assert len(self._frames) == len(self._boxes)
+        emb_1 = self._calc_embeddings(frame_idxs_1, boxes_1)
+        emb_2 = self._calc_embeddings(frame_idxs_2, boxes_2)
     
+    def reset(self) -> None:
+        self._frames.clear()
+        self._curr_frame_idx = 0
+    
+    def _calc_embeddings(
+        self,
+        frame_idxs: Sequence[int],
+        boxes: BoxList
+    ) -> torch.Tensor:
+        boxes_int = boxes.round().int()
+        emb = [
+            self._calc_embedding(frame_idx, box_int)
+            for frame_idx, box_int in zip(frame_idxs, boxes_int)
+        ]
+        emb = torch.tensor(emb)
+
+        return emb
+
+    @functools.lru_cache(maxsize=1024)
     def _calc_embedding(
         self,
         frame_idx: int,
-        int_box: Tuple[int]
+        box_int: Tuple[int]
     ) -> torch.Tensor:
-        pass
+        frame = self._get_frame(frame_idx)
+        roi = frame.crop(box_int)
+        roi = self._reid_transform(roi)
+        emb = self._reid_baseline(roi).cpu().detach()
 
-    @functools.lru_cache(maxsize=64)
-    def _frame_to_pil(self, frame_idx: int) -> Image.Image:
-        pass
+        return emb
 
-    def _img_tensor_to_pil(self, img: torch.Tensor) -> Image.Image:
-        assert img.ndim == 4
-        assert len(img) == 1
+    def _get_frame(self, frame_idx: int) -> Image.Image:
+        rel_queue_pos = len(self._frames) - (self._curr_frame_idx - frame_idx)
+        frame = self._frames[rel_queue_pos]
 
-        img = img.cpu().detach().squeeze(0).numpy()  # [3, H, W]
-        img = img.transpose(1, 2, 0)  # [H, W, 3]
-        img = Image.fromarray(img)
-
-        return img
- 
+        return frame
 
     def _img_tensor_to_cv(self, img: torch.Tensor) -> np.ndarray:
-        assert img.ndim == 4
-        assert len(img) == 1
-
         img = img.cpu().detach().squeeze(0).numpy()  # [3, H, W]
         img = img.transpose(1, 2, 0)  # [H, W, 3]
         img = (((img * self._pixel_std) + self._pixel_mean) * 255).round()
@@ -140,7 +131,7 @@ class ReIdManager:
         return img
 
 
-def build_reid_manager(cfg: CfgNode) -> ReIdManager:
+def build_or_get_existing_reid_manager(cfg: CfgNode) -> ReIdManager:
     global _instance
 
     if not _instance:
@@ -160,8 +151,6 @@ def build_reid_manager(cfg: CfgNode) -> ReIdManager:
         _instance = ReIdManager(
             baseline,
             transform,
-            cfg.INPUT.PIXEL_MEAN,
-            cfg.INPUT.PIXEL_STD,
             cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES
         )
     

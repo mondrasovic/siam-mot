@@ -19,6 +19,7 @@ from siammot.configs.defaults import cfg
 from siammot.data.adapters.augmentation.build_augmentation import \
     build_siam_augmentation
 from siammot.modelling.rcnn import build_siammot, SiamMOT
+from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager, ReIdManager
 
 
 class DemoInference:
@@ -110,6 +111,7 @@ class DemoInference:
     
     def process(self, frame: ndarray) -> BoxList:
         orig_h, orig_w, _ = frame.shape
+        # TODO Add the original frame to the ReID manager here.
         # frame should be RGB image
         frame = self._preprocess(frame)
         

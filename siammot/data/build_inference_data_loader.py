@@ -31,6 +31,7 @@ class InferenceVideoData(data.Dataset):
         timestamps = []
         start_idx = self.clip_idxs[id]
         end_idx = min(len(self.video), start_idx + self.clip_len)
+        
         for frame_idx in range(start_idx, end_idx):
             (im, timestamp, _) = self.video_reader[frame_idx]
             dummy_bbox = torch.tensor([[0, 0, 1, 1]])
@@ -50,9 +51,10 @@ class InferenceVideoData(data.Dataset):
 
 
 def build_video_loader(cfg, video: DataSample, transforms):
-    clip_len = cfg.INFERENCE.CLIP_LEN
     videodata = InferenceVideoData(
-        video, clip_len=clip_len, transforms=transforms
+        video,
+        clip_len=cfg.INFERENCE.CLIP_LEN,
+        transforms=transforms
     )
     videoloader = data.DataLoader(
         videodata,
