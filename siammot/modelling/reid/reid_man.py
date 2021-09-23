@@ -1,6 +1,6 @@
 import collections
 import functools
-import itertools
+
 from math import cos
 
 from typing import Deque, Sequence, Tuple

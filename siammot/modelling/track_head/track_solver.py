@@ -69,19 +69,10 @@ class TrackSolver(torch.nn.Module):
             return [detections]
         
         ids_orig = detections.get_field('ids')
-        scores_orig = detections.get_field('scores')
-
-        active_ids = self.track_pool.get_active_ids()
         dormant_ids = self.track_pool.get_dormant_ids()
 
         device = ids_orig.device
         _subset = boxlist_select_tensor_subset
-
-        active_mask = torch.tensor(
-            [int(x) in active_ids for x in ids_orig],
-            device=device
-        )
-        scores_orig[active_mask] += 1
 
         # Perform NMS only on detections that do not belong to dormant tracks.
         non_dormant_mask = torch.tensor(
@@ -95,20 +86,10 @@ class TrackSolver(torch.nn.Module):
         ids = nms_detections.get_field('ids')
         scores = nms_detections.get_field('scores')
 
-        scores[scores >= 2.] = scores[scores >= 2.] - 2
-        scores[scores >= 1.] = scores[scores >= 1.] - 1
+        scores[scores >= 1.0] -= 1.0
 
         # Some IDs may have been removed by the NMS.
         nms_removed_ids = set(non_dormant_ids.tolist()) - set(ids.tolist())
-        
-        print("**************************************************************")
-        print(ids_orig.tolist())
-        print(detections.get_field('scores'))
-        print(ids.tolist())
-        print(nms_detections.get_field('scores'))
-        print(f"IDS to suspend: {nms_removed_ids}.")
-        print(f"active IDs: {active_ids}.")
-        print(f"dormant IDs: {dormant_ids}.")
 
         for id_ in nms_removed_ids:
             if id_ >= 0:
