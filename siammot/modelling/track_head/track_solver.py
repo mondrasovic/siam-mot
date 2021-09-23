@@ -114,7 +114,7 @@ class TrackSolver(torch.nn.Module):
 
         current_frame_idx = self.track_pool.frame_idx
         unassigned_frame_idxs = [current_frame_idx] * len(unassigned_detections)
-                
+
         # Compute similarity values based on the cosine similarity between the
         # embedding vectors obtained via the ReID model.
         cos_sim_matrix = self.reid_man.calc_cosine_sim_matrix(
@@ -132,6 +132,8 @@ class TrackSolver(torch.nn.Module):
         if len(row_idxs) > 0:
             unassigned_idxs, = torch.where(unassigned_mask)
             dormant_idxs, = torch.where(dormant_mask)
+            print("*" * 100)
+            print(f"There really is something.")
 
         # Initialize a mask for all the preserved detections. The detections
         # that were dormant but will end up assigned in this stage will have to

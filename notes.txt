@@ -7,3 +7,30 @@ Then install the maskrcnn-benchmark with all its dependencies (don't forget to a
 Profiling
 gprof2dot -f pstats file.profile -o file.dot
 dot -Tsvg file.dot -o file.svg
+
+Evaluation report
+             num_frames MT PT ML IDs  FP   FN  MOTA  MOTP  IDF1
+MOT17-13-DPM        750 32 46 32  80 781 5291 47.2% 0.223 56.2%
+OVERALL             750 32 46 32  80 781 5291 47.2% 0.223 56.2%
+
+EVALUATION REPORT (ReID)
+             num_frames  MT  PT  ML IDs   FP    FN  MOTA  MOTP  IDF1
+MOT17-02-DPM        600   8  26  28  73  394 11330 36.5% 0.197 39.2%
+MOT17-04-DPM       1050  37  28  18  53  321 12808 72.3% 0.151 72.5%
+MOT17-05-DPM        837  41  57  35  71  301  2367 60.4% 0.155 64.0%
+MOT17-09-DPM        525  13  13   0  39   80  1493 69.7% 0.141 55.0%
+MOT17-10-DPM        654  21  26  10  97  496  4554 59.9% 0.219 53.5%
+MOT17-11-DPM        900  31  20  24  23  344  2670 67.8% 0.133 63.2%
+MOT17-13-DPM        750  32  46  32  80  781  5291 47.2% 0.223 56.2%
+OVERALL            5316 183 216 147 436 2717 40513 61.1% 0.168 61.8%
+
+EVALUATION REPORT (original)
+             num_frames  MT  PT  ML IDs   FP    FN  MOTA  MOTP  IDF1
+MOT17-02-DPM        600   8  28  26  93  883 10590 37.8% 0.203 40.4%
+MOT17-04-DPM       1050  39  27  17  81  418 12409 72.9% 0.152 73.3%
+MOT17-05-DPM        837  51  55  27  82  788  2012 58.3% 0.161 57.1%
+MOT17-09-DPM        525  12  14   0  48  142  1375 70.6% 0.148 58.3%
+MOT17-10-DPM        654  26  24   7 131 1726  3914 55.1% 0.225 52.9%
+MOT17-11-DPM        900  33  20  22  18  740  2556 64.9% 0.135 68.3%
+MOT17-13-DPM        750  35  44  31 104 1656  4927 42.6% 0.225 48.2%
+OVERALL            5316 204 212 130 557 6353 37783 60.2% 0.171 61.3%
