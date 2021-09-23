@@ -60,13 +60,15 @@ class ReIdManager:
    
     def add_next_frame(self, frame: Image.Image) -> None:
         self._frames.append(frame)
+    
+    def increment_frame_idx(self) -> None:
         self._curr_frame_idx += 1
 
     def preview_current_frame(self) -> None:
-        frame = self._get_frame()
-        frame = self._img_tensor_to_cv(frame)
+        frame = self._get_frame(self._curr_frame_idx)
+        img = self._img_pil_to_cv(frame)
 
-        cv.imshow("Preview", frame)
+        cv.imshow("Preview", img)
         cv.waitKey(0)
         cv.destroyAllWindows()
 
@@ -116,10 +118,16 @@ class ReIdManager:
         return emb
 
     def _get_frame(self, frame_idx: int) -> Image.Image:
-        rel_queue_pos = len(self._frames) - (self._curr_frame_idx - frame_idx)
+        idx_diff = self._curr_frame_idx - frame_idx
+        rel_queue_pos = len(self._frames) - idx_diff - 1
         frame = self._frames[rel_queue_pos]
 
         return frame
+    
+    def _img_pil_to_cv(self, img: Image.Image) -> np.ndarray:
+        img = np.asarray(img)
+        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
+        return img
 
     def _img_tensor_to_cv(self, img: torch.Tensor) -> np.ndarray:
         img = img.cpu().detach().squeeze(0).numpy()  # [3, H, W]

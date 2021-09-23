@@ -98,12 +98,15 @@ class TrackSolver(torch.nn.Module):
             self.track_pool.get_last_active_frame_idx(id_.item())
             for id_ in dormant_detections.get_field('ids')
         ]
+        
+        current_frame_idx = self.track_pool.frame_idx
+        unassigned_frame_idx = [current_frame_idx] * len(unassigned_detections)
                 
         # Compute similarity values based on the cosine similarity between the
         # embedding vectors obtained via the ReID model.
         cos_sim_matrix = self.reid_man.calc_cosine_sim_matrix(
             unassigned_detections,
-            None,
+            unassigned_frame_idx,
             dormant_detections,
             dormant_frame_idxs
         )

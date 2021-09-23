@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import time
 
 import numpy as np
@@ -24,7 +25,7 @@ def build_inverse_tensor_to_pil_transform(cfg):
     pixel_std = cfg.INPUT.PIXEL_STD
 
     def _img_tensor_to_pil(img: torch.Tensor) -> Image.Image:
-        img = img.cpu().detach().numpy()  # [3, H, W]
+        img = torch.squeeze(img).cpu().detach().numpy()  # [3, H, W]
         img = img.transpose(1, 2, 0)  # [H, W, 3]
         img = (((img * pixel_std) + pixel_mean) * 255).round()
         img = img.astype(np.uint8)
@@ -75,6 +76,7 @@ def do_inference(
 
         frame_orig = inverse_img_transform(video_clip)
         reid_manager.add_next_frame(frame_orig)
+        reid_manager.preview_current_frame()
 
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
@@ -114,6 +116,8 @@ def do_inference(
         )
         for entity in output_entities:
             sample_result.add_entity(entity)
+        
+        reid_manager.increment_frame_idx()
     
     logger.info(
         'Sample_id {} / Speed {} fps'.format(
