@@ -1,6 +1,7 @@
 import collections
 import functools
 import itertools
+from math import cos
 
 from typing import Deque, Sequence, Tuple
 
@@ -20,6 +21,35 @@ from siammot.modelling.reid.model.baseline import Baseline as ReidBaseline
 
 _instance = None
 _reid_config_file_path = "./configs/reid/market_1501.yml"
+
+
+def cos_sim_matrix(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    eps: float = 1e-8
+) -> torch.Tensor:
+    """Computes a 2D cosine similarity matrix between two sets of vectors.
+
+    Args:
+        a (torch.Tensor): First list of vectors of shape (N, D).
+        b (torch.Tensor): Second list of vectors of shape (M, D).
+        eps (float, optional): Small value to avoid division by zero.
+                               Defaults to 1e-8.
+
+    Returns:
+        torch.Tensor: A 2D cosine similarity matrix of shape (N, M).
+        The cell at i-th row and j-th column represents the cosine similarity
+        between the a[i] and b[j] D-dimensional vectors.
+    """
+    a_norm = a.norm(dim=1)[..., None]
+    b_norm = b.norm(dim=1)[..., None]
+
+    a_ = a / torch.clamp(a_norm, min=eps)
+    b_ = b / torch.clamp(b_norm, min=eps)
+
+    sim_matrix = torch.mm(a_, b_.T)
+
+    return sim_matrix
 
 
 def draw_box(
@@ -83,8 +113,15 @@ class ReIdManager:
         assert (not frame_idxs_2) or (len(boxes_2) == len(frame_idxs_2))
         assert boxes_1.mode == 'xyxy' and boxes_2.mode == 'xyxy'
 
+        if (len(boxes_1) == 0) or (len(boxes_2) == 0):
+            return torch.empty((0, 0))
+        
         emb_1 = self._calc_embeddings(frame_idxs_1, boxes_1)
         emb_2 = self._calc_embeddings(frame_idxs_2, boxes_2)
+
+        sim_matrix = cos_sim_matrix(emb_1, emb_2)
+
+        return sim_matrix
     
     def reset(self) -> None:
         self._frames.clear()
@@ -95,12 +132,13 @@ class ReIdManager:
         frame_idxs: Sequence[int],
         boxes: BoxList
     ) -> torch.Tensor:
-        boxes_int = boxes.round().int()
+        boxes_int = boxes.bbox.round().int()
+
         emb = [
-            self._calc_embedding(frame_idx, box_int)
+            self._calc_embedding(frame_idx, tuple(box_int.tolist()))
             for frame_idx, box_int in zip(frame_idxs, boxes_int)
         ]
-        emb = torch.tensor(emb)
+        emb = torch.cat(emb, dim=0)
 
         return emb
 
@@ -112,7 +150,7 @@ class ReIdManager:
     ) -> torch.Tensor:
         frame = self._get_frame(frame_idx)
         roi = frame.crop(box_int)
-        roi = self._reid_transform(roi)
+        roi = torch.unsqueeze(self._reid_transform(roi), dim=0).cuda()
         emb = self._reid_baseline(roi).cpu().detach()
 
         return emb

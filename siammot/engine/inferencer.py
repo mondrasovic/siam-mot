@@ -76,7 +76,7 @@ def do_inference(
 
         frame_orig = inverse_img_transform(video_clip)
         reid_manager.add_next_frame(frame_orig)
-        reid_manager.preview_current_frame()
+        # reid_manager.preview_current_frame()
 
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
