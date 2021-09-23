@@ -1,4 +1,7 @@
+from typing import List
+
 import torch
+
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import AnnoEntity
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 
@@ -40,7 +43,7 @@ def boxlists_to_entities(
 
 
 def convert_given_detections_to_boxlist(
-    entities: [AnnoEntity], video_width, video_height,
+    entities: List[AnnoEntity], video_width, video_height,
     class_table=None
 ):
     # default class is person only
