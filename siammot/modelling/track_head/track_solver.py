@@ -17,7 +17,7 @@ def boxlist_select_tensor_subset(
     boxlist: BoxList,
     mask: torch.Tensor
 ) -> BoxList:
-    box_subset = boxlist.bbox[mask]        
+    box_subset = boxlist.bbox[mask]
     boxlist_subset = BoxList(box_subset, boxlist.size, boxlist.mode)
 
     for field in boxlist.fields():
@@ -89,6 +89,7 @@ class TrackSolver(torch.nn.Module):
             device=device
         )
         non_dormant_detections = _subset(detections, non_dormant_mask)
+        non_dormant_ids = non_dormant_detections.get_field('ids')
         nms_detections = boxlist_nms(non_dormant_detections, nms_thresh)
                 
         ids = nms_detections.get_field('ids')
@@ -98,17 +99,20 @@ class TrackSolver(torch.nn.Module):
         scores[scores >= 1.] = scores[scores >= 1.] - 1
 
         # Some IDs may have been removed by the NMS.
-        nms_removed_ids = set(ids_orig.tolist()) - set(ids.tolist())
+        nms_removed_ids = set(non_dormant_ids.tolist()) - set(ids.tolist())
+        
         print("**************************************************************")
-        print(non_dormant_mask)
         print(ids_orig.tolist())
         print(detections.get_field('scores'))
         print(ids.tolist())
         print(nms_detections.get_field('scores'))
         print(f"IDS to suspend: {nms_removed_ids}.")
+        print(f"active IDs: {active_ids}.")
+        print(f"dormant IDs: {dormant_ids}.")
+
         for id_ in nms_removed_ids:
-            print(f"removing {id_}")
-            self.track_pool.suspend_track(id_)
+            if id_ >= 0:
+                self.track_pool.suspend_track(id_)
 
         # Extract still unassigned detections after the NMS.
         unassigned_mask = ids < 0
@@ -152,7 +156,7 @@ class TrackSolver(torch.nn.Module):
         # that were dormant but will end up assigned in this stage will have to
         # be removed from the list. Only the bounding box from the new
         # detection will be preserved.
-        preserved_mask = torch.full_like(ids, True)
+        preserved_mask = torch.full_like(ids, True, dtype=torch.bool)
 
         # Assign IDs from the dormant detections to the unassigned detections if
         # their similarity is above the threshold.
@@ -166,7 +170,7 @@ class TrackSolver(torch.nn.Module):
                 preserved_mask[dormant_idx] = False
                 self.track_pool.resume_track(dormant_id)
         
-        detections_ = _subset(detections, preserved_mask)
+        detections_ = _subset(nms_detections, preserved_mask)
 
         ids_ = detections_.get_field('ids')
         scores_ = detections_.get_field('scores')
