@@ -43,13 +43,36 @@ def create_splits_dict(subset_name, sample_name):
     return splits_dict
 
 
+def recreate_splits_file(splits_file_path, subset_name, sample_name):
+    with open(splits_file_path, 'wt') as splits_fp:
+        splits_dict = create_splits_dict(subset_name, sample_name)
+        json.dump(splits_dict, splits_fp, indent=2)
+
+
+def recreate_anno_file(
+    anno_src_file_path,
+    anno_dst_file_path,
+    sample_name,
+    entity_predicate
+):
+    with open(anno_src_file_path) as anno_fp:
+            anno_src = json.load(anno_fp)
+        
+    with open(anno_dst_file_path, 'wt') as anno_fp:
+        anno_dst = anno_extract_entities(
+            anno_src, sample_name, entity_predicate
+        )
+        json.dump(anno_dst, anno_fp, indent=2)
+
+
 def recreate_data_subset_hierarchy(
     src_dataset_dir_path,
     dst_dataset_dir_path,
     subset_name,
     sample_name,
     entity_predicate,
-    file_predicate
+    file_predicate,
+    use_dpm=False
 ):
     src_dataset_dir = pathlib.Path(src_dataset_dir_path)
     dst_dataset_dir = pathlib.Path(dst_dataset_dir_path)
@@ -59,22 +82,25 @@ def recreate_data_subset_hierarchy(
     dst_anno_dir.mkdir(exist_ok=True, parents=True)
 
     splits_file_path = str(dst_anno_dir / "splits.json")
-    with open(splits_file_path, 'wt') as splits_fp:
-        splits_dict = create_splits_dict(subset_name, sample_name)
-        json.dump(splits_dict, splits_fp, indent=2)
-    
+    recreate_splits_file(splits_file_path, subset_name, sample_name)
+
     anno_src_file_path = str(src_anno_dir / "anno.json")
     anno_dst_file_path = str(dst_anno_dir / "anno.json")
+    recreate_anno_file(
+        anno_src_file_path, anno_dst_file_path, sample_name, entity_predicate
+    )
 
-    with open(anno_src_file_path) as anno_fp:
-        anno_src = json.load(anno_fp)
-    
-    with open(anno_dst_file_path, 'wt') as anno_fp:
-        anno_dst = anno_extract_entities(
-            anno_src, sample_name, entity_predicate
+    if use_dpm:
+        splits_dpm_file_path = str(dst_anno_dir / "splits_DPM.json")
+        recreate_splits_file(splits_dpm_file_path, subset_name, sample_name)
+
+        anno_pub_src_file_path = str(src_anno_dir / "anno_pub_detection.json")
+        anno_pub_dst_file_path = str(dst_anno_dir / "anno_pub_detection.json")
+        recreate_anno_file(
+            anno_pub_src_file_path, anno_pub_dst_file_path, sample_name,
+            entity_predicate
         )
-        json.dump(anno_dst, anno_fp, indent=2)
-    
+
     rel_dir = pathlib.Path("raw_data") / subset_name / sample_name / "img1"
     src_imgs_dir = src_dataset_dir / rel_dir
     dst_imgs_dir = dst_dataset_dir / rel_dir
@@ -107,20 +133,22 @@ def build_img_file_in_range_predicate(frame_no_min, frame_no_max):
     multiple=False, show_default=True, help="Data subset."
 )
 @click.option(
-    '-b', '--begin-frame', type=click.IntRange(min=1), default=0,
+    '-b', '--begin-frame', type=click.IntRange(min=1), default=1,
     show_default=True, help="Minimum frame no."
 )
 @click.option(
     '-e', '--end-frame', type=click.IntRange(min=1), default=None,
     show_default=True, help="Maximum frame no."
 )
+@click.option('--dpm', is_flag=True, help="Use DPM annotations.")
 def main(
     src_dir_path,
     dst_dir_path,
     sample,
     subset,
     begin_frame,
-    end_frame
+    end_frame,
+    dpm
 ):
     if end_frame is None:
         end_frame = sys.size
@@ -137,7 +165,7 @@ def main(
 
     recreate_data_subset_hierarchy(
         src_dir_path, dst_dir_path, subset, sample,
-        entity_frame_range_predicate, img_frame_range_predicate
+        entity_frame_range_predicate, img_frame_range_predicate, dpm
     )
 
     return 0

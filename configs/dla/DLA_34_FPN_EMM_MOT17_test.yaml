@@ -41,7 +41,7 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: "E:/datasets"
+  ROOT_DIR: "E:/small_datasets"
 
 DATALOADER:
   SIZE_DIVISIBILITY: 32
