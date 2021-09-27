@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import time
 
 import numpy as np
@@ -18,6 +17,9 @@ from ..utils.boxlists_to_entities import (
     convert_given_detections_to_boxlist,
 )
 from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager
+from siammot.modelling.track_head.track_solver_debug import (
+    build_or_get_existing_track_solver_debugger
+)
 
 
 def build_inverse_tensor_to_pil_transform(cfg):
@@ -63,6 +65,9 @@ def do_inference(
     reid_manager.reset()
     inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
 
+    solver_debugger = build_or_get_existing_track_solver_debugger()
+    solver_debugger.reset()
+
     video_loader = build_video_loader(cfg, sample, transforms)
     
     sample_result = DataSample(
@@ -76,7 +81,6 @@ def do_inference(
 
         frame_orig = inverse_img_transform(video_clip)
         reid_manager.add_next_frame(frame_orig)
-        # reid_manager.preview_current_frame()
 
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
@@ -124,6 +128,9 @@ def do_inference(
             sample.id, len(sample) / (network_time)
         )
     )
+
+    # TODO Implement better path handling.
+    solver_debugger.save_to_file(f"track_solver_debug_{sample.id}.json")
     
     return sample_result
 

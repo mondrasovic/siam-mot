@@ -264,14 +264,6 @@ class TrackPool(object):
     def get_cache(self):
         return self._cache
     
-    def activate_tracks(self, track_id: int) -> None:
-        if track_id in self._active_ids or \
-            track_id not in self._dormant_ids:
-            raise ValueError
-        
-        self._active_ids.add(track_id)
-        self._dormant_ids.pop(track_id)
-    
     def get_last_active_frame_idx(self, track_id: int) -> int:
         return self._dormant_ids[track_id]
     

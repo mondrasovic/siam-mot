@@ -11,6 +11,9 @@ from siammot.modelling.track_head.track_utils import TrackPool
 from siammot.modelling.reid.reid_man import (
     ReIdManager, build_or_get_existing_reid_manager
 )
+from siammot.modelling.track_head.track_solver_debug import (
+    TrackSolverDebugger, build_or_get_existing_track_solver_debugger
+)
 
 
 def boxlist_select_tensor_subset(
@@ -43,6 +46,9 @@ class TrackSolver(torch.nn.Module):
         self.track_thresh: float = track_thresh
         self.start_thresh: float = start_track_thresh
         self.resume_track_thresh: float = resume_track_thresh
+
+        self.solver_debugger: TrackSolverDebugger =\
+            build_or_get_existing_track_solver_debugger()
     
     def forward(self, detections: List[BoxList]):
         """
@@ -68,6 +74,8 @@ class TrackSolver(torch.nn.Module):
         if len(detections) == 0:
             return [detections]
         
+        self._add_debug('input', detections)
+
         ids_orig = detections.get_field('ids')
         dormant_ids = self.track_pool.get_dormant_ids()
 
@@ -82,7 +90,9 @@ class TrackSolver(torch.nn.Module):
         non_dormant_detections = _subset(detections, non_dormant_mask)
         non_dormant_ids = non_dormant_detections.get_field('ids')
         nms_detections = boxlist_nms(non_dormant_detections, nms_thresh)
-                
+        
+        self._add_debug('after NMS', nms_detections)
+
         ids = nms_detections.get_field('ids')
         scores = nms_detections.get_field('scores')
 
@@ -155,6 +165,8 @@ class TrackSolver(torch.nn.Module):
         
         detections_ = _subset(nms_detections, preserved_mask)
 
+        self._add_debug('after ReID', detections_)
+
         ids_ = detections_.get_field('ids')
         scores_ = detections_.get_field('scores')
 
@@ -176,8 +188,17 @@ class TrackSolver(torch.nn.Module):
         
         self.track_pool.expire_tracks()
         self.track_pool.increment_frame()
+
+        self._add_debug('output', detections_)
+        self.solver_debugger.save_frame()
         
         return [detections_]
+
+    def _add_debug(self, stage, detections):
+        self.solver_debugger.add_detections(
+            stage, detections, self.track_pool.get_active_ids(),
+            self.track_pool.get_dormant_ids()
+    )
 
 
 def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
