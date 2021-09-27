@@ -1,6 +1,8 @@
 import sys
+import tqdm
 import json
 import click
+import shutil
 import itertools
 import pathlib
 
@@ -81,14 +83,11 @@ def render_entity(img, entity):
 
 @click.command()
 @click.argument('imgs_dir_path', type=click.Path())
+@click.argument('output_dir_path', type=click.Path())
 @click.argument('inference_dump_file_path', type=click.Path())
 @click.option(
     '-n', '--start-frame', type=int, default=1, show_default=True,
     help="Frame no. to start from."
-)
-@click.option(
-    '-w', '--win-name', type=str, default="Tracking preview", show_default=True,
-    help="Window name."
 )
 @click.option(
     '--w-scale', type=float, default=1.0, show_default=True,
@@ -100,9 +99,9 @@ def render_entity(img, entity):
 )
 def main(
     imgs_dir_path,
+    output_dir_path,
     inference_dump_file_path,
     start_frame,
-    win_name,
     w_scale,
     h_scale
 ):
@@ -111,24 +110,26 @@ def main(
         entities = content['entities']
     
     imgs_dir = pathlib.Path(imgs_dir_path)
+    output_dir = pathlib.Path(output_dir_path)
+    if output_dir.exists():
+        shutil.rmtree(str(output_dir))
+    else:
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    for i, (img, entities_iter) in enumerate(
-        iter_imgs_and_entities(imgs_dir, entities), start=1
+    for i, (img, entities_iter) in tqdm.tqdm(
+        enumerate(iter_imgs_and_entities(imgs_dir, entities), start=1)
     ):
         if i < start_frame:
             continue
 
         for entity in entities_iter:
             render_entity(img, entity)
-        
+                
         img = cv.resize(img, None, fx=w_scale, fy=h_scale)
-        cv.imshow(win_name, img)
 
-        key = cv.waitKey(0) & 0xff
-        if key == ord('q'):
-            break
-
-    cv.destroyWindow(win_name)
+        img_file_name = f"frame_{i:05d}.jpg"
+        img_file_path = str(output_dir / img_file_name)
+        cv.imwrite(img_file_path, img)
 
     return 0
 
