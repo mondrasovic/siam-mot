@@ -40,7 +40,7 @@ def labeled_rectangle(
     label,
     rect_color,
     label_color,
-    alpha= 0.85
+    alpha=0.85
 ):
     (x1, y1), (x2, y2) = start_pt, end_pt
 
@@ -113,8 +113,7 @@ def main(
     output_dir = pathlib.Path(output_dir_path)
     if output_dir.exists():
         shutil.rmtree(str(output_dir))
-    else:
-        output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for i, (img, entities_iter) in tqdm.tqdm(
         enumerate(iter_imgs_and_entities(imgs_dir, entities), start=1)

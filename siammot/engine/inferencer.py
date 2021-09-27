@@ -67,6 +67,8 @@ def do_inference(
 
     solver_debugger = build_or_get_existing_track_solver_debugger()
     solver_debugger.reset()
+    solver_debugger.sample_width = sample.width
+    solver_debugger.sample_height = sample.height
 
     video_loader = build_video_loader(cfg, sample, transforms)
     
