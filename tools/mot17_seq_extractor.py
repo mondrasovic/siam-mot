@@ -76,6 +76,9 @@ def recreate_data_subset_hierarchy(
 ):
     src_dataset_dir = pathlib.Path(src_dataset_dir_path)
     dst_dataset_dir = pathlib.Path(dst_dataset_dir_path)
+
+    if dst_dataset_dir.exists():
+       shutil.rmtree(str(dst_dataset_dir))
     
     src_anno_dir = src_dataset_dir / "annotation"
     dst_anno_dir = dst_dataset_dir / "annotation"
