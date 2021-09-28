@@ -61,10 +61,7 @@ class TrackSolverDebugger:
         self._frames.append(self._curr_frame)
         self._curr_frame = self._init_new_frame()
     
-    def save_to_file(
-        self,
-        json_file_path: str
-    ) -> None:
+    def save_to_file(self, json_file_path: str) -> None:
         with open(json_file_path, 'wt') as output_file:
             data = {
                 'frames': self._frames

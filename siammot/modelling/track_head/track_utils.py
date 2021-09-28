@@ -234,17 +234,6 @@ class TrackPool(object):
         self._active_ids.add(track_id)
         self._dormant_ids.pop(track_id)
     
-    def kill_track(self, track_id: int) -> None:
-        """
-        Kill a track
-        """
-        if track_id not in self._active_ids:
-            raise ValueError
-        
-        self._active_ids.remove(track_id)
-        self._kill_ids.add(track_id)
-        self._cache.pop(track_id, None)
-    
     def start_track(self) -> int:
         """
         Return a new track id, when starting a new track

@@ -4,6 +4,7 @@ import torch
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
+from maskrcnn_benchmark.layers import nms as _box_nms
 from yacs.config import CfgNode
 from scipy.optimize import linear_sum_assignment
 
@@ -14,6 +15,27 @@ from siammot.modelling.reid.reid_man import (
 from siammot.modelling.track_head.track_solver_debug import (
     TrackSolverDebugger, build_or_get_existing_track_solver_debugger
 )
+
+def boxlist_nms_mask_only(
+    boxlist: BoxList,
+    nms_thresh: float,
+    score_field: str = 'scores'
+) -> BoxList:
+    """Performs non-maximum suppression on a boxlist, with scores specified
+    in a boxlist field via score_field.
+
+    Arguments:
+        boxlist (BoxList)
+        nms_thresh (float)
+        score_field (str)
+    """
+    boxlist = boxlist.convert('xyxy')
+    boxes = boxlist.bbox
+    score = boxlist.get_field(score_field)
+
+    keep = _box_nms(boxes, score, nms_thresh)
+
+    return keep
 
 
 def boxlist_select_tensor_subset(
@@ -83,11 +105,11 @@ class TrackSolver(torch.nn.Module):
         _subset = boxlist_select_tensor_subset
 
         # Perform NMS only on detections that do not belong to dormant tracks.
-        non_dormant_mask = torch.tensor(
-            [int(x) not in dormant_ids for x in ids_orig],
+        dormant_mask = torch.tensor(
+            [int(x) in dormant_ids for x in ids_orig],
             device=device
         )
-        non_dormant_detections = _subset(detections, non_dormant_mask)
+        non_dormant_detections = _subset(detections, ~dormant_mask)
         non_dormant_ids = non_dormant_detections.get_field('ids')
         nms_detections = boxlist_nms(non_dormant_detections, nms_thresh)
         
@@ -110,11 +132,7 @@ class TrackSolver(torch.nn.Module):
         unassigned_detections = _subset(nms_detections, unassigned_mask)
 
         # Extract dormant detections.
-        dormant_mask = torch.tensor(
-            [int(x) in dormant_ids for x in ids],
-            device=device
-        )
-        dormant_detections = _subset(nms_detections, dormant_mask)
+        dormant_detections = _subset(detections, dormant_mask)
 
         # We need frame indices to access previously processed frames.
         dormant_frame_idxs = [
@@ -158,7 +176,7 @@ class TrackSolver(torch.nn.Module):
                 unassigned_idx = unassigned_idxs[row]
                 dormant_idx = dormant_idxs[col]
 
-                dormant_id = ids[dormant_idx].item()
+                dormant_id = ids_orig[dormant_idx].item()
                 ids[unassigned_idx] = dormant_id
                 preserved_mask[dormant_idx] = False
                 self.track_pool.resume_track(dormant_id)

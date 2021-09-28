@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -185,7 +187,7 @@ def get_cosine_window_penalty(tlbr: torch.Tensor):
     return window[None, :]
 
 
-def wrap_results_to_boxlist(bb, bb_conf, boxes: [BoxList], amodal=False):
+def wrap_results_to_boxlist(bb, bb_conf, boxes: List[BoxList], amodal=False):
     num_boxes_per_image = [len(box) for box in boxes]
     bb = bb.split(num_boxes_per_image, dim=0)
     bb_conf = bb_conf.split(num_boxes_per_image, dim=0)
@@ -206,11 +208,8 @@ def wrap_results_to_boxlist(bb, bb_conf, boxes: [BoxList], amodal=False):
 
 def get_locations(
     fmap: torch.Tensor, template_fmap: torch.Tensor,
-    sr_boxes: [BoxList], shift_xy, up_scale=1
+    sr_boxes: List[BoxList], shift_xy, up_scale=1
 ):
-    """
-
-    """
     h, w = fmap.size()[-2:]
     h, w = h * up_scale, w * up_scale
     concat_boxes = cat([b.bbox for b in sr_boxes], dim=0)
