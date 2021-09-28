@@ -18,10 +18,15 @@ def iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path):
         frames_data = content['frames']
     
     def _build_entities_iter(stage_data):
-        yield from stage_data['entities']
+        status_vals = ('inactive', 'dormant', 'active')
+        
+        def _sort_by_status_key(entity):
+            return status_vals.index(entity['status'])
+        
+        yield from iter(sorted(stage_data['entities'], key=_sort_by_status_key))
     
     def _build_stages_iter(frame_data):
-        stages_order = ('input', 'after NMS', 'after ReID', 'output')
+        stages_order = ('input', 'after NMS', 'output')
         stages = frame_data['stages']
 
         for stage_name in stages_order:
@@ -51,8 +56,8 @@ def labeled_rectangle(
     img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
 
     font_face = cv.FONT_HERSHEY_COMPLEX_SMALL
-    font_scale = 1
-    font_thickness = 3
+    font_scale = 1.5
+    font_thickness = 2
 
     (text_width, text_height), baseline = cv.getTextSize(
         label, font_face, font_scale, font_thickness)
@@ -125,6 +130,8 @@ def main(
     
     data_iter = iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path)
     for i, (img, stages_iter) in tqdm.tqdm(enumerate(data_iter, start=1)):
+        if i > 20:
+            break
         for j, (stage_name, entities_iter) in enumerate(stages_iter, start=1):
             curr_img = img.copy()
             for entity in entities_iter:
