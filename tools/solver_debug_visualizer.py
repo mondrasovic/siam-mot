@@ -26,13 +26,14 @@ def iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path):
         yield from iter(sorted(stage_data['entities'], key=_sort_by_status_key))
     
     def _build_stages_iter(frame_data):
-        stages_order = ('input', 'after NMS', 'output')
+        stages_order = ('input', 'after NMS', 'after ReID', 'output')
         stages = frame_data['stages']
 
         for stage_name in stages_order:
-            stage_data = stages[stage_name]
-            entities_iter = _build_entities_iter(stage_data)
-            yield stage_name, entities_iter
+            stage_data = stages.get(stage_name)
+            if stage_data is not None:
+                entities_iter = _build_entities_iter(stage_data)
+                yield stage_name, entities_iter
     
     for file, frame_data in zip(imgs_dir.iterdir(), frames_data):
         img = cv.imread(str(file), cv.IMREAD_COLOR)
@@ -130,8 +131,6 @@ def main(
     
     data_iter = iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path)
     for i, (img, stages_iter) in tqdm.tqdm(enumerate(data_iter, start=1)):
-        if i > 20:
-            break
         for j, (stage_name, entities_iter) in enumerate(stages_iter, start=1):
             curr_img = img.copy()
             for entity in entities_iter:
