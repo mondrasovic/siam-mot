@@ -41,11 +41,11 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: "E:/small_datasets"
+  ROOT_DIR: "/content"
 
 DATALOADER:
   SIZE_DIVISIBILITY: 32
-  NUM_WORKERS: 4
+  NUM_WORKERS: 2
 
 # Set this one to be false for private detection
 INFERENCE:
