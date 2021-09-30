@@ -2,6 +2,7 @@
 Basic testing script for PyTorch
 Only support single-gpu now
 """
+
 import argparse
 import os
 
@@ -44,6 +45,12 @@ parser.add_argument("--set", default="test", type=str)
 parser.add_argument("--gpu-id", default=0, type=int)
 parser.add_argument("--num-gpus", default=1, type=int)
 parser.add_argument("--eval-csv-file", default=None, type=str)
+parser.add_argument(
+    'opts',
+    help="overwriting the training config from commandline",
+    default=None,
+    nargs=argparse.REMAINDER
+)
 
 def test(cfg, args, output_dir):
     torch.cuda.empty_cache()
@@ -87,6 +94,7 @@ def test(cfg, args, output_dir):
 def main():
     args = parser.parse_args()
     cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
     cfg.freeze()
     
     model_name = get_model_name(cfg)
