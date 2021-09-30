@@ -1,5 +1,6 @@
 import os
 import sys
+import click
 import shutil
 import dataclasses
 import subprocess
@@ -68,13 +69,21 @@ def iter_cmd_args(
         yield cmd
 
 
-def main():
-    # TODO Make these paths parametric using "click".
-    inference_dump_dir_path = "./DLA-34-FPN_box_EMM"
-    config_file_path = "./configs/dla/DLA_34_FPN_EMM_MOT17_test.yaml"
-    model_file_path = "./demos/models/DLA-34-FPN_EMM_crowdhuman_mot17.pth"
-    output_dir_path = "."
-    
+@click.command()
+@click.argument("inference_dump_dir_path", type=click.Path())
+@click.argument("config_file_path", type=click.Path(exists=True))
+@click.argument("model_file_path", type=click.Path(exists=True))
+@click.option(
+    "-o", "--output-dir-path", type=click.Path(), default=".",
+    show_default=True, help="Output directory path"
+)
+def main(
+    inference_dump_dir_path,
+    config_file_path,
+    model_file_path,
+    output_dir_path
+) -> int:
+   
     cmd_arg_specs = (
         CfgOptSpec(
             "MODEL.TRACK_HEAD.COS_SIM_THRESH",
