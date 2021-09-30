@@ -1,3 +1,4 @@
+import os
 import sys
 import shutil
 import dataclasses
@@ -81,8 +82,9 @@ def main():
     for cmd in iter_cmd_args(
         config_file_path, model_file_path, cmd_arg_specs,_build_csv_file_path
     ):
-        shutil.rmtree(inference_dump_dir_path)
-        
+        if os.path.exists(inference_dump_dir_path):
+            shutil.rmtree(inference_dump_dir_path)
+
         cmd_str = " ".join(cmd)
         print(f"Running command:\n{cmd_str}\n{'*' * 80}\n")
 
