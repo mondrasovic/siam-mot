@@ -20,7 +20,7 @@ class CfgOptSpec:
 CsvFilePathBuilderT = Callable[[Sequence[Tuple[str, str]]], str]
 
 
-def _build_csv_file_path(cfg_opts: Sequence[Tuple[str, str]]) -> str:
+def _build_csv_file_name(cfg_opts: Sequence[Tuple[str, str]]) -> str:
     file_name = "eval"
     for opt_name, opt_val in cfg_opts:
         if "COS_SIM" in opt_name:
@@ -55,11 +55,13 @@ def iter_cmd_args(
     config_file_path: str,
     model_file_path: str,
     cmd_arg_specs: Iterable[CfgOptSpec],
-    csv_file_path_builder: CsvFilePathBuilderT
+    output_dir_path: str,
+    csv_file_name_builder: CsvFilePathBuilderT
 ) -> List[str]:
     cfg_name_val_iters = tuple(c.iter_name_val_pairs() for c in cmd_arg_specs)
     for cfg_opts in itertools.product(*cfg_name_val_iters):
-        csv_file_path = csv_file_path_builder(cfg_opts)
+        csv_file_name = csv_file_name_builder(cfg_opts)
+        csv_file_path = os.path.join(output_dir_path, csv_file_name)
         cmd = build_run_test_cmd(
             config_file_path, model_file_path, csv_file_path, cfg_opts
         )
@@ -71,6 +73,7 @@ def main():
     inference_dump_dir_path = "./DLA-34-FPN_box_EMM"
     config_file_path = "./configs/dla/DLA_34_FPN_EMM_MOT17_test.yaml"
     model_file_path = "./demos/models/DLA-34-FPN_EMM_crowdhuman_mot17.pth"
+    output_dir_path = "."
     
     cmd_arg_specs = (
         CfgOptSpec(
@@ -80,7 +83,8 @@ def main():
     )
 
     for cmd in iter_cmd_args(
-        config_file_path, model_file_path, cmd_arg_specs,_build_csv_file_path
+        config_file_path, model_file_path, cmd_arg_specs, output_dir_path,
+        _build_csv_file_name
     ):
         if os.path.exists(inference_dump_dir_path):
             shutil.rmtree(inference_dump_dir_path)
