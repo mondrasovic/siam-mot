@@ -43,7 +43,7 @@ parser.add_argument("--test-dataset", default="MOT17_DPM", type=str)
 parser.add_argument("--set", default="test", type=str)
 parser.add_argument("--gpu-id", default=0, type=int)
 parser.add_argument("--num-gpus", default=1, type=int)
-
+parser.add_argument("--eval-csv-file", default=None, type=str)
 
 def test(cfg, args, output_dir):
     torch.cuda.empty_cache()
@@ -76,8 +76,10 @@ def test(cfg, args, output_dir):
     if cfg.INFERENCE.USE_GIVEN_DETECTIONS:
         public_detection = load_public_detection(cfg, dataset_key)
     
+    eval_csv_file_path = args.eval_csv_file
     dataset_inference = DatasetInference(
-        cfg, model, dataset, output_dir, data_filter_fn, public_detection
+        cfg, model, dataset, output_dir, data_filter_fn, public_detection,
+        motsummary_csv_file_path=eval_csv_file_path
     )
     dataset_inference()
 

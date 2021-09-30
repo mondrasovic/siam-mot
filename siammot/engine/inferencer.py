@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 import torch
+
 from PIL import Image
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import DataSample
 from tqdm import tqdm
@@ -139,10 +140,16 @@ def do_inference(
 
 class DatasetInference(object):
     def __init__(
-        self, cfg, model, dataset, output_dir, data_filter_fn=None,
-        public_detection=None, distributed=False
-    ):
-        
+        self,
+        cfg,
+        model,
+        dataset,
+        output_dir,
+        data_filter_fn=None,
+        public_detection=None,
+        distributed=False,
+        motsummary_csv_file_path=None
+    ): 
         self._cfg = cfg
         
         self._transform = build_siam_augmentation(cfg, is_train=False)
@@ -155,7 +162,8 @@ class DatasetInference(object):
         self._track_conf = 0.7
         self._track_len = 5
         self._logger = logging.getLogger(__name__)
-        
+        self._motsummary_csv_file_path = motsummary_csv_file_path
+
         self.results = dict()
     
     def _eval_det_ap(self):
@@ -182,11 +190,11 @@ class DatasetInference(object):
         return ap, ap_str_summary
     
     def _eval_clear_mot(self):
-        motmetric, motstrsummary = eval_clears_mot(
+        motmetric, motsummary, motstrsummary = eval_clears_mot(
             self._dataset, self.results,
             data_filter_fn=self._data_filter_fn
         )
-        return motmetric, motstrsummary
+        return motmetric, motsummary, motstrsummary
     
     def _inference_on_video(self, sample):
         cache_path = os.path.join(self._output_dir, '{}.json'.format(sample.id))
@@ -243,9 +251,12 @@ class DatasetInference(object):
         self._logger.info(
             "\n---------------- Start evaluating ----------------\n"
         )
-        _, motstrsummary = self._eval_clear_mot()
+        _, motsummary, motstrsummary = self._eval_clear_mot()
         self._logger.info(motstrsummary)
         
         self._logger.info(
             "\n---------------- Finish evaluating ----------------\n"
         )
+
+        if self._motsummary_csv_file_path is not None:
+            motsummary.to_csv(self._motsummary_csv_file_path)

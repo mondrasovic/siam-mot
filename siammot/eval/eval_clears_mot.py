@@ -1,9 +1,12 @@
 import motmetrics as mm
+
 from tqdm import tqdm
 
 
 def eval_clears_mot(
-    samples, predicted_samples, data_filter_fn=None,
+    samples,
+    predicted_samples,
+    data_filter_fn=None,
     iou_thresh=0.5
 ):
     """
@@ -76,10 +79,13 @@ def eval_clears_mot(
     
     # Make sure to update to the latest version of motmetrics via pip or idf1
     # calculation might be very slow
-    metrics = ['num_frames', 'mostly_tracked', 'partially_tracked',
-        'mostly_lost', 'num_switches',
-        'num_false_positives', 'num_misses', 'mota', 'motp', 'idf1']
+    metrics = [
+        'num_frames', 'mostly_tracked', 'partially_tracked',
+        'mostly_lost', 'num_switches', 'num_false_positives',
+        'num_misses', 'mota', 'motp', 'idf1',
+    ]
     
+    summary = None
     strsummary = ""
     if len(all_accumulators):
         summary = metrics_host.compute_many(
@@ -95,4 +101,4 @@ def eval_clears_mot(
             namemap=mm.io.motchallenge_metric_names
         )
     
-    return all_accumulators, "\n\n" + strsummary + "\n\n"
+    return all_accumulators, summary, "\n\n" + strsummary + "\n\n"
