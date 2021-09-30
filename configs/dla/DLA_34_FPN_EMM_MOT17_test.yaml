@@ -28,7 +28,7 @@ MODEL:
 
   # The maximum number of frames that a track keeps dormant before it is killed
   TRACK_HEAD:
-    MAX_DORMANT_FRAMES: 100
+    MAX_DORMANT_FRAMES: 25
 
 SOLVER:
   # Assume 8 GPUs
