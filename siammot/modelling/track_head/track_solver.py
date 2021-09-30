@@ -310,7 +310,9 @@ def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
         reid_man,
         cfg.MODEL.TRACK_HEAD.TRACK_THRESH,
         cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH,
-        cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH
+        cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH,
+        cfg.MODEL.TRACK_HEAD.NMS_THRESH,
+        cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
     )
 
     return track_solver
