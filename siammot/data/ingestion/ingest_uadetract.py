@@ -14,11 +14,7 @@ from gluoncv.torch.data.gluoncv_motion_dataset.utils.ingestion_utils import \
     process_dataset_splits
 
 
-def sample_from_xml(
-    xml_file_path,
-    split_dir_name,
-    args
-):
+def sample_from_xml(xml_file_path, split_dir_name, args):
     def _read_box(node_attr):
         def _coord(x):
             return round(float(x))

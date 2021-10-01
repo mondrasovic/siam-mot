@@ -9,12 +9,16 @@ def build_data_filter_fn(dataset_key: str, *args, **kwargs):
     Get dataset specific filter function list, if there is any
     """
     filter_fn = None
+    
     if dataset_key == 'CRP':
         filter_fn = CRPFilter(*args, **kwargs)
     elif dataset_key.startswith('MOT'):
         filter_fn = MOTFilter(*args, **kwargs)
     elif dataset_key == 'AOT':
         filter_fn = AOTFilter(*args, **kwargs)
+    elif 'DETRAC' in dataset_key:
+        filter_fn = UADETRACFilter(*args, **kwargs)
+    
     return filter_fn
 
 
@@ -155,3 +159,7 @@ class AOTFilter(BaseFilter):
                     if bbs_iou(entity, entity_) >= self.iou_thresh:
                         return True
         return False
+
+
+class UADETRACFilter(BaseFilter):
+    pass  # TODO Implement filtering ignored regions.
