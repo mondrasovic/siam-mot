@@ -68,9 +68,9 @@ def sample_from_xml(
             region_overlap = target.find('.//region_overlap')
             if region_overlap is not None:
                 region_overlap_attr = region_overlap.attrib
-                occlusion_status = int(region_overlap_attr['occlusion_status'])
+                occlusion_status = region_overlap_attr['occlusion_status']
                 occlusion_box = _read_box(region_overlap_attr)
-                entity.blob['occlusion_status'] = occlusion_status
+                entity.blob['occlusion_status'] = int(occlusion_status)
                 entity.labels[occlusion_status] = 1
                 entity.blob['occlusion_box'] = occlusion_box
 
@@ -112,7 +112,7 @@ def ingest_uadetrac(args):
     with tqdm_pbar as pbar:
         for split_dir_name, split_dir in splits:
             for sample_xml_file_path in map(str, split_dir.iterdir()):
-                pbar.set_description(f"processing: {sample_xml_file_path}")
+                pbar.set_description(f"reading sample {sample_xml_file_path}")
                 sample = sample_from_xml(
                     sample_xml_file_path, split_dir_name, args
                 )
