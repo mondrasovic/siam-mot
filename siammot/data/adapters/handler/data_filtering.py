@@ -1,4 +1,7 @@
+from typing import List
+
 import numpy as np
+
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import AnnoEntity
 
 from siammot.utils.entity_utils import bbs_iou
@@ -29,13 +32,13 @@ class BaseFilter:
     # the default filter does not filter any entity, which is technically
     # doing nothing
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
-        raise False
+        return False
     
     def filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         return self._filter(entity, ignored_gt_entities)
     
     def __call__(
-        self, entities: [AnnoEntity], ignored_entities=None, meta_data=None
+        self, entities: List[AnnoEntity], ignored_entities=None, meta_data=None
     ):
         """
             Check each entity whether it is valid or should be filtered (
