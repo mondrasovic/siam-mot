@@ -19,7 +19,12 @@ def boxlists_to_entities(
     
     # default class is person only
     if class_table is None:
-        class_table = ["person"]
+        class_table = [
+            'person', 'bicycle', 'car', 'motorcycle',
+            'airplane', 'bus', 'train', 'truck', 'boat'
+        ]
+        # TODO Make class table parametric.
+        # class_table = ['person']
     
     assert isinstance(boxlists, list), "The input has to be a list"
     

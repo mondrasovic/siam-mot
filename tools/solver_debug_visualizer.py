@@ -5,6 +5,8 @@ import click
 import shutil
 import pathlib
 import functools
+import queue
+import threading
 
 import cv2 as cv
 import numpy as np
@@ -105,6 +107,64 @@ def render_entity(img, stage_name, entity):
     labeled_rectangle(img, start_pt, end_pt, label, rect_color, label_color)
 
 
+class ClosableQueue(queue.Queue):
+    _SENTINEL = object()
+
+    def close(self):
+        self.put(self._SENTINEL)
+
+    def __iter__(self):
+        while True:
+            item = self.get()
+            try:
+                if item is self._SENTINEL:
+                    return
+                yield item
+            finally:
+                self.task_done()
+
+
+class StageProcessorWorker(threading.Thread):
+    def __init__(
+        self,
+        output_dir,
+        w_scale,
+        h_scale,
+        img_stages_iters_queue,
+        imgs_processed_queue
+    ):
+        super().__init__()
+
+        self.output_dir = output_dir
+        self.w_scale = w_scale
+        self.h_scale = h_scale
+        self.img_stages_iters_queue = img_stages_iters_queue
+        self.imgs_processed_queue = imgs_processed_queue
+    
+    def run(self):
+        should_resize = not np.allclose(
+            np.asarray((self.w_scale, self.h_scale)), 1
+        )
+
+        for frame_idx, (img, stages_iter) in self.img_stages_iters_queue:
+            for j, (stage_name, entities_iter) in enumerate(
+                stages_iter, start=1
+            ):
+                curr_img = img.copy()
+                for entity in entities_iter:
+                    render_entity(curr_img, stage_name, entity)
+                
+                if should_resize:
+                    curr_img = cv.resize(
+                        curr_img, None, fx=self.w_scale, fy=self.h_scale
+                    )
+
+                img_file_name = f'frame_{frame_idx:04d}_{j:02d}_{stage_name}.jpg'
+                img_file_path = str(self.output_dir / img_file_name)
+                self.imgs_processed_queue.put((img_file_path, curr_img))
+        self.imgs_processed_queue.close()
+
+
 @click.command()
 @click.argument('imgs_dir_path', type=click.Path())
 @click.argument('output_dir_path', type=click.Path())
@@ -129,19 +189,29 @@ def main(
         shutil.rmtree(str(output_dir))
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    img_stages_iters_queue = ClosableQueue()
+    imgs_processed_queue = ClosableQueue()
+
+    stages_processor_thread = StageProcessorWorker(
+        output_dir, w_scale, h_scale, img_stages_iters_queue,
+        imgs_processed_queue
+    )
+    stages_processor_thread.start()
+
     data_iter = iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path)
-    for i, (img, stages_iter) in tqdm.tqdm(enumerate(data_iter, start=1)):
-        for j, (stage_name, entities_iter) in enumerate(stages_iter, start=1):
-            curr_img = img.copy()
-            for entity in entities_iter:
-                render_entity(curr_img, stage_name, entity)
-            
-            curr_img = cv.resize(curr_img, None, fx=w_scale, fy=h_scale)
+    print("Reading frames...")
+    for item in tqdm.tqdm(enumerate(data_iter, start=1)):
+        img_stages_iters_queue.put(item)
+    img_stages_iters_queue.close()
 
-            img_file_name = f"frame_{i:04d}_{j:02d}_{stage_name}.jpg"
-            img_file_path = str(output_dir / img_file_name)
-            cv.imwrite(img_file_path, curr_img)
-
+    print("Saving processed frames...")
+    for img_file_path, img in tqdm.tqdm(imgs_processed_queue):
+        cv.imwrite(img_file_path, img)
+    
+    img_stages_iters_queue.join()
+    imgs_processed_queue.join()
+    stages_processor_thread.join()
+    
     return 0
 
 
