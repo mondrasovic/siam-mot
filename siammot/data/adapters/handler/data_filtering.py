@@ -164,7 +164,7 @@ class AOTFilter(BaseFilter):
 
 class UADETRACFilter(BaseFilter):
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
-        if 'person' in entity.labels.keys():  # TODO Make this more general.
+        if 'person' in entity.labels.keys():
             return True
 
         return False
