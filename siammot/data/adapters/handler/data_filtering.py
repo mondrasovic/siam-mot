@@ -29,8 +29,6 @@ class BaseFilter:
     def __init__(self) -> None:
         pass
     
-    # the default filter does not filter any entity, which is technically
-    # doing nothing
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         return False
     
@@ -165,4 +163,8 @@ class AOTFilter(BaseFilter):
 
 
 class UADETRACFilter(BaseFilter):
-    pass  # TODO Implement filtering ignored regions.
+    def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
+        if 'person' in entity.labels.keys():  # TODO Make this more general.
+            return True
+
+        return False

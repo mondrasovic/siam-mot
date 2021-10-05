@@ -14,8 +14,8 @@ if __name__ == '__main__':
         vis_resolution: int = 1080
         track_class: str = 'person_vehicle'
         dump_video: bool = False
-        output_path: str = "E:/siammot_sandbox/tracking_vis"
-        demo_video: str = "E:/interreg_sample.mp4"
+        output_path: str = 'E:/siammot_sandbox/tracking_vis'
+        demo_video: str = 'E:/interreg_sample.mp4'
     
     
     args = Args()

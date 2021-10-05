@@ -67,7 +67,6 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                 occlusion_status = region_overlap_attr['occlusion_status']
                 occlusion_box = _read_box(region_overlap_attr)
                 entity.blob['occlusion_status'] = int(occlusion_status)
-                entity.labels[occlusion_status] = 1
                 entity.blob['occlusion_box'] = occlusion_box
 
             sample.add_entity(entity)
@@ -97,7 +96,7 @@ def ingest_uadetrac(args):
 
     dataset_anno_dir = (
         pathlib.Path(args.dataset_dir_path) / GluonCVMotionDataset.DATA_DIR /
-        "DETRAC_public"
+        'DETRAC_public'
     )
     splits = (
         (args.train_img_dir, dataset_anno_dir / args.train_anno_dir),
@@ -145,23 +144,23 @@ def main():
         help="Root directory path to the dataset."
     )
     parser.add_argument(
-        '--train-img-dir', type=str, default="Insight-MVT_Annotation_Train",
+        '--train-img-dir', type=str, default='Insight-MVT_Annotation_Train',
         help="Train data directory name."
     )
     parser.add_argument(
-        '--test-img-dir', type=str, default="Insight-MVT_Annotation_Test",
+        '--test-img-dir', type=str, default='Insight-MVT_Annotation_Test',
         help="Test data directory name."
     )
     parser.add_argument(
-        '--train-anno-dir', type=str, default="540p-Train",
+        '--train-anno-dir', type=str, default='540p-Train',
         help="Train annotations directory name."
     )
     parser.add_argument(
-        '--test-anno-dir', type=str, default="540p-Test",
+        '--test-anno-dir', type=str, default='540p-Test',
         help="Test annotations directory name."
     )
     parser.add_argument(
-        '--anno-file', type=str, default="anno.json",
+        '--anno-file', type=str, default='anno.json',
         help="Annotation file name."
     )
     parser.add_argument(

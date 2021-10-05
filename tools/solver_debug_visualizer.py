@@ -88,14 +88,12 @@ def render_entity(img, stage_name, entity):
     label = f"{entity['id']}"
     status = entity['status']
 
-    label_color = (200, 200, 200)
-
     if status == 'active':
-        rect_color = (0, 255, 0)
+        rect_color = (80, 204, 0)
     elif status == 'dormant':
-        rect_color = (255, 0, 0)
+        rect_color = (255, 51, 51)
     else:
-        rect_color = (0, 0, 255)
+        rect_color = (0, 0, 153)
     
     render_stage_text = functools.partial(
         cv.putText, img=img, text=f"Stage: {stage_name}", org=(10, 50),
@@ -103,8 +101,9 @@ def render_entity(img, stage_name, entity):
     )
     render_stage_text(color=(0, 0, 0), thickness=5)
     render_stage_text(color=(255, 255, 255), thickness=3)
-
-    labeled_rectangle(img, start_pt, end_pt, label, rect_color, label_color)
+    labeled_rectangle(
+        img, start_pt, end_pt, label, rect_color, label_color=(200, 200, 200)
+    )
 
 
 class ClosableQueue(queue.Queue):

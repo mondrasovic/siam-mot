@@ -30,10 +30,11 @@ class TrackSolverDebugger:
         boxes = detections.bbox.round().int()
         ids = detections.get_field('ids')
         scores = detections.get_field('scores')
+        labels = detections.get_field('labels')
 
         entities = []
-        for box, id_, score in zip(boxes, ids, scores):
-            id_, score = id_.item(), score.item()
+        for box, id_, score, label in zip(boxes, ids, scores, labels):
+            id_, score, label = id_.item(), score.item(), label.item()
 
             if id_ in active_ids:
                 status = 'active'
@@ -47,6 +48,7 @@ class TrackSolverDebugger:
                 'confidence': score,
                 'id': id_,
                 'status': status,
+                'label': label,
             }
             entities.append(entity)
         
