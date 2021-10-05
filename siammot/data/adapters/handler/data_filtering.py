@@ -163,8 +163,14 @@ class AOTFilter(BaseFilter):
 
 
 class UADETRACFilter(BaseFilter):
+    def __init__(self, is_train: bool = False) -> None:
+        super().__init__()
+
+        self.is_train: bool = is_train
+    
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
-        if 'person' in entity.labels.keys():
-            return True
+        if not self.is_train:
+            if 'person' in entity.labels.keys():
+                return True
 
         return False
