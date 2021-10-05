@@ -71,7 +71,7 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
 
             sample.add_entity(entity)
     
-    rel_data_path = os.path.join(split_dir_name, seq_name)
+    rel_data_path = os.path.join(split_dir_name, seq_name).replace('\\', '/')
     sample.metadata = {
         FieldNames.DATA_PATH:  rel_data_path,
         FieldNames.FPS:        args.fps,
