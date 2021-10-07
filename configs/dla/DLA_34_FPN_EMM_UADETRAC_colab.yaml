@@ -1,3 +1,5 @@
+DTYPE: "float16"
+
 INPUT:
   MIN_SIZE_TRAIN: (800,)
   MAX_SIZE_TRAIN: 1280
