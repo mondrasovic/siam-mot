@@ -1,5 +1,5 @@
 MODEL:
-  PRETRAIN_PATH: './resnet50-19c8e357.pth'
+  PRETRAIN_PATH: './pretrained/resnet50-19c8e357.pth'
   
 INPUT:
   SIZE_TRAIN: [224, 224]
@@ -16,6 +16,7 @@ DATASETS:
   TRAIN_PATH: 'image_train'
   QUERY_PATH: 'image_query'
   GALLERY_PATH: 'image_test'
+  NUM_CLASSES: 575 # VeRi number of classes.
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
