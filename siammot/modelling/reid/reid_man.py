@@ -20,7 +20,7 @@ from siammot.modelling.reid.model.baseline import Baseline as ReidBaseline
 
 
 _instance = None
-_reid_config_file_path = "./configs/reid/market_1501.yml"
+_reid_config_file_path = "./configs/reid/veri.yml"
 
 
 def cos_sim_matrix(

@@ -2,7 +2,6 @@ import argparse
 import os
 
 import torch
-import torch.distributed as dist
 from maskrcnn_benchmark.solver import make_lr_scheduler, make_optimizer
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
