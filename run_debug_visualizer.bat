@@ -8,8 +8,9 @@ set "out_dir_path=E:\solver_debug_visualization"
 for %%i in (track_solver_debug_*.json) do (
     echo -----------------------------------------------------------------------
     echo Processing... %%i
-    set "basename=%%~ni"
-    set "curr_imgs_dir_path=%dataset_dir_path%\%basename:~-9%"
-    set "curr_out_dir_path=%out_dir_path%\%basename%"
+    set "base_name=%%~ni"
+    set "sample_name=%base_name:~-9%"
+    set "curr_imgs_dir_path=%dataset_dir_path%\%sample_name%"
+    set "curr_out_dir_path=%out_dir_path%\%sample_name%"
     python %visualizer_script% %curr_imgs_dir_path% %curr_out_dir_path% %%i
 )
