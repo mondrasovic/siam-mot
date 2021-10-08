@@ -19,6 +19,9 @@ import matplotlib.pyplot as plt
 BBoxT = Tuple[int, int, int, int]
 ColorT = Tuple[int, int, int]
 
+_N_CLASSES = 13
+_WIN_NAME = "Frame preview"
+
 
 @dataclasses.dataclass(frozen=True)
 class DataEntity:
@@ -36,6 +39,7 @@ class SampleFrame:
     time_ms: int
     img_file_path: str
     entities: Sequence[DataEntity]
+    ignored_regions: Sequence[BBoxT]
 
 
 def init_colors(n_colors: int, randomize: bool = False) -> Sequence[ColorT]:
@@ -51,6 +55,16 @@ def init_colors(n_colors: int, randomize: bool = False) -> Sequence[ColorT]:
     return cast(Sequence[ColorT], colors)
 
 
+# TODO Refactor drawing "nice" text.
+
+def transparent_rectangle(img, start_pt, end_pt, alpha=0.5):
+    (x1, y1), (x2, y2) = start_pt, end_pt
+
+    roi = img[y1:y2, x1:x2]
+    rect = np.ones_like(roi) * 255
+    img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
+
+
 def labeled_rectangle(
     img,
     start_pt,
@@ -60,11 +74,7 @@ def labeled_rectangle(
     label_color,
     alpha=0.85
 ):
-    (x1, y1), (x2, y2) = start_pt, end_pt
-
-    roi = img[y1:y2, x1:x2]
-    rect = np.ones_like(roi) * 255
-    img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
+    transparent_rectangle(img, start_pt, end_pt, alpha)
 
     font_face = cv.FONT_HERSHEY_COMPLEX_SMALL
     font_scale = 1.5
@@ -79,14 +89,13 @@ def labeled_rectangle(
     
     # TODO Somehow calculate the shift.
     text_start_pt = (start_pt[0] + 1, start_pt[1] + text_height + 3)
-    cv.putText(
-        img, label, text_start_pt, font_face, font_scale, label_color,
-        font_thickness, cv.LINE_AA
+    render_text = functools.partial(
+        cv.putText, img=img, text=label, org=text_start_pt,
+        fontFace=cv.FONT_HERSHEY_COMPLEX_SMALL, fontScale=2, lineType=cv.LINE_AA
     )
-    cv.putText(
-        img, label, text_start_pt, font_face, font_scale, (255, 255, 255),
-        max(1, font_thickness - 2), cv.LINE_AA
-    )
+    render_text(color=label_color, thickness=font_thickness)
+    render_text(color=(255, 255, 255), thickness=max(1, font_thickness - 2))
+
     cv.rectangle(img, start_pt, end_pt, rect_color, 2, cv.LINE_AA)
 
 
@@ -119,8 +128,9 @@ def build_entity_renderer(
 
 
 def build_time_str(time_ms: int) -> str:
-    n_mins = time_ms // (1000 * 60)
-    time_ms %= 1000 * 60
+    msec_in_min = 1000 * 60
+    n_mins = time_ms // msec_in_min
+    time_ms %= msec_in_min
     n_secs = time_ms // 1000
     time_ms %= 1000
 
@@ -133,6 +143,13 @@ def read_and_render_frame(
 ) -> np.ndarray:
     img = cv.imread(frame.img_file_path, cv.IMREAD_COLOR)
 
+    for ignored_region in frame.ignored_regions:
+        start_pt = ignored_region[:2]
+        end_pt = (
+            start_pt[0] + ignored_region[2], start_pt[1] + ignored_region[1]
+        )
+        transparent_rectangle(img, start_pt, end_pt, alpha=0.6)
+    
     for entity in frame.entities:
         entity_renderer(img, entity)
     
@@ -186,6 +203,11 @@ def iter_sample_frames_from_xml(
     tree = ElementTree.parse(xml_file_path)
     root = tree.getroot()
 
+    ignored_regions = []
+    for box in root.findall('./ignored_region/box'):
+        box = _read_box(box.attrib)
+        ignored_regions.append(box)
+    
     for frame in root.findall('./frame'):
         frame_num = int(frame.attrib['num'])
         time_ms = int(round(((frame_num - 1) / fps) * 1000))
@@ -205,7 +227,9 @@ def iter_sample_frames_from_xml(
             entity = DataEntity(obj_id, box, vehicle_type)
             entities.append(entity)
         
-        sample_frame = SampleFrame(frame_num, time_ms, img_file_path, entities)
+        sample_frame = SampleFrame(
+            frame_num, time_ms, img_file_path, entities, ignored_regions
+        )
         yield sample_frame
 
 
@@ -213,10 +237,12 @@ def iter_sample_frames_from_xml(
 @click.argument('dataset_dir_path', type=click.Path(exists=True))
 @click.argument('sample_name', type=str)
 @click.argument('output_dir_path', type=click.Path())
+@click.option('-s', '--show', is_flag=True, help="Shows rendered frames.")
 def main(
     dataset_dir_path: click.Path,
     sample_name: str,
-    output_dir_path: click.Path
+    output_dir_path: click.Path,
+    show: bool
 ) -> int:
     output_dir = pathlib.Path(output_dir_path)
     if output_dir.exists():
@@ -227,7 +253,7 @@ def main(
         dataset_dir_path, sample_name
     )
 
-    entity_renderer = build_entity_renderer(13)
+    entity_renderer = build_entity_renderer(_N_CLASSES)
 
     for sample_frame in tqdm.tqdm(iter_sample_frames_from_xml(
         xml_file_path, imgs_dir_path
@@ -235,7 +261,13 @@ def main(
         img = read_and_render_frame(sample_frame, entity_renderer)
         img_file_name = pathlib.Path(sample_frame.img_file_path).name
         img_file_path = str(output_dir / img_file_name)
+
         cv.imwrite(img_file_path, img)
+        if show:
+            cv.imshow(_WIN_NAME, img)
+            if (cv.waitKey(0) & 0xff) == ord('q'):
+                break
+    cv.destroyWindow(_WIN_NAME)
 
     return 0
 
