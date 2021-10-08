@@ -14,7 +14,11 @@ for %%i in (track_solver_debug_*.json) do (
     echo Processing sample !sample_name!
     set "curr_imgs_dir_path=%dataset_dir_path%\!sample_name!"
     set "curr_out_dir_path=%out_dir_path%\!sample_name!"
-    python %visualizer_script% !curr_imgs_dir_path! !curr_out_dir_path! %%i
+    if exist !curr_out_dir_path!\ (
+        echo Skipping !sample_name!
+    ) else (
+        python %visualizer_script% !curr_imgs_dir_path! !curr_out_dir_path! %%i
+    )
 )
 
 endlocal
