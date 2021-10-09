@@ -128,10 +128,15 @@ class VideoDataset(data.Dataset):
         """
         boxes = [entity.bbox for entity in entities]
         ids = [int(entity.id) for entity in entities]
-        # we only consider person tracking for now,
-        # thus all the labels are 1,
-        # reserve category 0 for background during training
-        int_labels = [1 for _ in entities]
+        # Originally, the authors considered only person tracking, thus all the
+        # labels were 1 (with 0 being reserved for the background category).
+        # int_labels = [1 for _ in entities]
+        int_labels = []
+        for entity in entities:
+            assert len(entity.labels) == 1
+            int_label = int(next(entity.labels.values()))
+            assert int_label > 0
+            int_labels.append(int_label)
         
         boxes = torch.as_tensor(boxes).reshape(-1, 4)
         boxes = BoxList(boxes, im.size, mode='xywh').convert('xyxy')
