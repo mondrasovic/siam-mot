@@ -1,3 +1,5 @@
+# Ingestion script for UA-DETRAC (https://detrac-db.rit.albany.edu/) dataset.
+
 import os
 import sys
 import tqdm
@@ -8,10 +10,18 @@ from xml.etree import ElementTree
 from datetime import datetime
 
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import (
-    AnnoEntity, DataSample, FieldNames, GluonCVMotionDataset, SplitNames,
+    AnnoEntity, DataSample, FieldNames, GluonCVMotionDataset, SplitNames
 )
 from gluoncv.torch.data.gluoncv_motion_dataset.utils.ingestion_utils import \
     process_dataset_splits
+
+
+_VEHICLE_TYPES = (
+    'Bus', 'Hatchback', 'MiniVan', 'Police', 'Sedan', 'Suv', 'Taxi',
+    'Truck-Box-Large', 'Truck-Box-Med', 'Truck-Flatbed', 'Truck-Pickup',
+    'Truck-Util', 'Van'
+)
+_CLASS_LABELS = dict((vt, i) for i, vt in enumerate(_VEHICLE_TYPES, start=1))
 
 
 def sample_from_xml(xml_file_path, split_dir_name, args):
@@ -59,7 +69,7 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                 'truncation_ratio':  float(attrib_attr['truncation_ratio']),
                 'vehicle_type':      vehicle_type,
             }
-            entity.labels = {vehicle_type: 1}
+            entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type]}
             
             region_overlap = target.find('.//region_overlap')
             if region_overlap is not None:
@@ -71,6 +81,9 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
 
             sample.add_entity(entity)
     
+    # Need to replace the Windows path separator by UNIX-like to make the path
+    # working across different platforms. Linux struggles with mixing path
+    # separators whereas Windows does not.
     rel_data_path = os.path.join(split_dir_name, seq_name).replace('\\', '/')
     sample.metadata = {
         FieldNames.DATA_PATH:  rel_data_path,
@@ -86,7 +99,7 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
 
 def ingest_uadetrac(args):
     dataset = GluonCVMotionDataset(
-        annotation_file=args.anno_file, root_path=args.dataset_dir_path,
+        annotation_file='anno.json', root_path=args.dataset_dir_path,
         load_anno=False
     )
     dataset.metadata = {
@@ -99,8 +112,8 @@ def ingest_uadetrac(args):
         'DETRAC_public'
     )
     splits = (
-        (args.train_img_dir, dataset_anno_dir / args.train_anno_dir),
-        (args.test_img_dir, dataset_anno_dir / args.test_anno_dir),
+        ('Insight-MVT_Annotation_Train', dataset_anno_dir / '540p-Train'),
+        ('Insight-MVT_Annotation_Test', dataset_anno_dir / '540p-Test'),
     )
 
     tqdm_pbar = tqdm.tqdm(file=sys.stdout)
@@ -119,13 +132,13 @@ def ingest_uadetrac(args):
     return dataset
 
 
-def write_data_split(dataset, args):
+def write_data_split(dataset):
     def split_func(sample):
         data_path = sample.data_relative_path
 
-        if args.train_img_dir in data_path:
+        if '_Train' in data_path:
             return SplitNames.TRAIN
-        elif args.test_img_dir in data_path:
+        elif '_Test' in data_path:
             return SplitNames.TEST
         
         raise RuntimeError("unrecognized data split")
@@ -144,26 +157,6 @@ def main():
         help="Root directory path to the dataset."
     )
     parser.add_argument(
-        '--train-img-dir', type=str, default='Insight-MVT_Annotation_Train',
-        help="Train data directory name."
-    )
-    parser.add_argument(
-        '--test-img-dir', type=str, default='Insight-MVT_Annotation_Test',
-        help="Test data directory name."
-    )
-    parser.add_argument(
-        '--train-anno-dir', type=str, default='540p-Train',
-        help="Train annotations directory name."
-    )
-    parser.add_argument(
-        '--test-anno-dir', type=str, default='540p-Test',
-        help="Test annotations directory name."
-    )
-    parser.add_argument(
-        '--anno-file', type=str, default='anno.json',
-        help="Annotation file name."
-    )
-    parser.add_argument(
         '--fps', type=int, default=25, help="FPS for all data samples."
     )
     parser.add_argument(
@@ -175,7 +168,7 @@ def main():
     args = parser.parse_args()
 
     dataset = ingest_uadetrac(args)
-    write_data_split(dataset, args)
+    write_data_split(dataset)
 
     return 0
 

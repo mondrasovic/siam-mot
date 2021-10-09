@@ -1,6 +1,7 @@
 import itertools
 import random
 from collections import defaultdict
+from typing import List
 
 import torch
 import torch.utils.data as data
@@ -121,7 +122,7 @@ class VideoDataset(data.Dataset):
         
         return video_clips
     
-    def entity2target(self, im: Image, entities: [AnnoEntity]):
+    def entity2target(self, im: Image, entities: List[AnnoEntity]):
         """
         Wrap up the entity to maskrcnn-benchmark compatible format - BoxList
         """
