@@ -1,8 +1,14 @@
+from typing import List
+
 import numpy as np
+
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import AnnoEntity
 
 
-def bbs_iou(entities_1: [AnnoEntity], entities_2: [AnnoEntity]):
+def bbs_iou(
+    entities_1: List[AnnoEntity],
+    entities_2: List[AnnoEntity]
+) -> np.ndarray:
     """
     Compute iou matrix between two lists of Entity
     bbox in AnnoEntity is in the format of xywh
@@ -35,8 +41,6 @@ def bbs_iou(entities_1: [AnnoEntity], entities_2: [AnnoEntity]):
     
     lt = np.maximum(box_xyxy_1[:, None, :2], box_xyxy_2[:, :2])  # [N,M,2]
     rb = np.minimum(box_xyxy_1[:, None, 2:], box_xyxy_2[:, 2:])  # [N,M,2]
-    
-    TO_REMOVE = 1
     
     wh = (rb - lt).clip(min=0)  # [N,M,2]
     inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]

@@ -163,14 +163,35 @@ class AOTFilter(BaseFilter):
 
 
 class UADETRACFilter(BaseFilter):
-    def __init__(self, is_train: bool = False) -> None:
+    def __init__(self, iou_thresh: float = 0.5, is_train: bool = False) -> None:
         super().__init__()
 
+        self.iou_thresh: float = iou_thresh
         self.is_train: bool = is_train
+
+        x = 380.75
+        y = 0.5
+        w = 579.75
+        h = 96.75
+
+        box = [x, y, w, h]
+        self.ignored_region_dummy_entity = AnnoEntity(0, -1, validate=False)
+        self.ignored_region_dummy_entity.bbox = box
     
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if not self.is_train:
-            if 'person' in entity.labels.keys():
+            if entity.id < 0:
+                return True
+            
+            if 'person' in entity.labels.keys():  # Due to the pretrained model.
+                return True
+            
+            if ignored_gt_entities:
+                for entity_ in ignored_gt_entities:
+                    if bbs_iou(entity, entity_) >= self.iou_thresh:
+                        return True
+
+            if bbs_iou(entity, self.ignored_region_dummy_entity) >= 0.9:
                 return True
 
         return False

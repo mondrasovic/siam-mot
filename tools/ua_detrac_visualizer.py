@@ -57,11 +57,13 @@ def init_colors(n_colors: int, randomize: bool = False) -> Sequence[ColorT]:
 
 # TODO Refactor drawing "nice" text.
 
-def transparent_rectangle(img, start_pt, end_pt, alpha=0.5):
+def transparent_rectangle(img, start_pt, end_pt, alpha=0.5, val=255):
+    assert 0 <= val <= 255
+
     (x1, y1), (x2, y2) = start_pt, end_pt
 
     roi = img[y1:y2, x1:x2]
-    rect = np.ones_like(roi) * 255
+    rect = np.ones_like(roi) * val
     img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
 
 
@@ -146,9 +148,9 @@ def read_and_render_frame(
     for ignored_region in frame.ignored_regions:
         start_pt = ignored_region[:2]
         end_pt = (
-            start_pt[0] + ignored_region[2], start_pt[1] + ignored_region[1]
+            start_pt[0] + ignored_region[2], start_pt[1] + ignored_region[3]
         )
-        transparent_rectangle(img, start_pt, end_pt, alpha=0.6)
+        transparent_rectangle(img, start_pt, end_pt, alpha=0.5, val=0)
     
     for entity in frame.entities:
         entity_renderer(img, entity)

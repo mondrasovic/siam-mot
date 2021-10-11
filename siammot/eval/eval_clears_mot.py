@@ -15,9 +15,7 @@ def eval_clears_mot(
     predicted_tracks:DataSample)
     :param data_filter_fn: a callable function to filter entities
     :param iou_thresh: The IOU (between a predicted bounding box and gt )
-    threshold
-                       that determines a predicted bounding box is a true
-                       positive
+    threshold that determines a predicted bounding box is a true positive
     """
     
     assert 0 < iou_thresh <= 1
