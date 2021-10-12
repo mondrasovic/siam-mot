@@ -67,7 +67,7 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: "home/mond/s/ssd/datasets"
+  ROOT_DIR: "/home/mond/s/ssd/datasets"
   TRAIN: ("UA_DETRAC",)
 
 DATALOADER:
