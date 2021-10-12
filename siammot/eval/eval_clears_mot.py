@@ -47,7 +47,6 @@ def eval_clears_mot(
                     meta_data=sample.metadata
                 )
             gt_ids, gt_bboxes = get_id_and_bbox(valid_gt)
-            
             out_ids = []
             out_bboxes = []
             

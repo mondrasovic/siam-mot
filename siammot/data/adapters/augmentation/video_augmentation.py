@@ -1,4 +1,5 @@
 import random
+import torch.nn.functional as F
 
 from torchvision.transforms import (
     ColorJitter as ImageColorJitter,
@@ -105,10 +106,8 @@ class SiamVideoColorJitter(ImageColorJitter):
         
         idx = random.choice((0, 1))
         # all frames in the video should go through the same transformation
-        transform = self.get_params(
-            self.brightness, self.contrast,
-            self.saturation, self.hue
-        )
+        transform = self._build_transform()
+
         new_video = []
         new_target = []
         for i, (image, image_target) in enumerate(zip(video, target)):
@@ -118,6 +117,69 @@ class SiamVideoColorJitter(ImageColorJitter):
             new_target.append(image_target)
         
         return new_video, new_target
+    
+    def _build_transform(self):
+        ret = self.get_params(
+            self.brightness, self.contrast,
+            self.saturation, self.hue
+        )
+
+        # An ugly compatibility hack. Old version of PyTorch returned the
+        # entire transformation, which was kinda weird. Later on, they fixed it.
+        # However, this code assumed the previous version.
+        if isinstance(ret, tuple):
+            fn_idx, b, c, s, h = ret
+
+            def _transform(img):
+                for fn_id in fn_idx:
+                    if fn_id == 0 and b is not None:
+                        img = F.adjust_brightness(img, b)
+                    elif fn_id == 1 and c is not None:
+                        img = F.adjust_contrast(img, c)
+                    elif fn_id == 2 and s is not None:
+                        img = F.adjust_saturation(img, s)
+                    elif fn_id == 3 and h is not None:
+                        img = F.adjust_hue(img, h)
+                return img
+            
+            return _transform
+        else:
+            return ret
+
+
+
+# class SiamVideoColorJitter(ImageColorJitter):
+#     def __init__(
+#         self,
+#         brightness=None,
+#         contrast=None,
+#         saturation=None,
+#         hue=None
+#     ):
+#         super(SiamVideoColorJitter, self).__init__(
+#             brightness, contrast, saturation, hue
+#         )
+    
+#     def __call__(self, video, target=None):
+#         # Color jitter only applies for Siamese Training
+#         if not isinstance(video, (list, tuple)):
+#             return video, target
+        
+#         idx = random.choice((0, 1))
+#         # all frames in the video should go through the same transformation
+#         transform = self.get_params(
+#             self.brightness, self.contrast,
+#             self.saturation, self.hue
+#         )
+#         new_video = []
+#         new_target = []
+#         for i, (image, image_target) in enumerate(zip(video, target)):
+#             if i == idx:
+#                 image = transform(image)
+#             new_video.append(image)
+#             new_target.append(image_target)
+        
+#         return new_video, new_target
 
 
 class SiamVideoMotionAugment(object):
