@@ -1,5 +1,6 @@
 import argparse
 import os
+import gc
 
 import torch
 from maskrcnn_benchmark.solver import make_lr_scheduler, make_optimizer
@@ -78,6 +79,9 @@ def train(cfg, train_dir, local_rank, distributed, logger):
     checkpoint_period = cfg.SOLVER.CHECKPOINT_PERIOD
     
     tensorboard_writer = TensorboardWriter(cfg, train_dir)
+    
+    gc.collect()
+    torch.cuda.empty_cache()
     
     do_train(
         model, data_loader, optimizer, scheduler,
