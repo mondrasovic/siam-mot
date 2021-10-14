@@ -1,0 +1,17 @@
+BEFORE BACKWARD
+Total Tensors: 118041908 	Used Memory: 450.38M
+The allocated memory on cuda:0: 7.14G
+Memory differs due to the matrix alignment or invisible gradient buffer tensors
+
+Total Tensors: 118041938 	Used Memory: 450.38M
+The allocated memory on cuda:0: 6.61G
+Memory differs due to the matrix alignment or invisible gradient buffer tensors
+
+AFTER BACKWARD
+Total Tensors: 118041907 	Used Memory: 450.38M
+The allocated memory on cuda:0: 456.13M
+Memory differs due to the matrix alignment or invisible gradient buffer tensors
+
+Total Tensors: 118041937 	Used Memory: 450.38M
+The allocated memory on cuda:0: 457.76M
+Memory differs due to the matrix alignment or invisible gradient buffer tensors
