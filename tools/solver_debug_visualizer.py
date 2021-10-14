@@ -84,7 +84,7 @@ def labeled_rectangle(
 
 def render_entity(img, stage_name, entity):
     box = entity['box']
-    start_pt, end_pt = box[:2], box[2:]
+    start_pt, end_pt = tuple(box[:2]), tuple(box[2:])
     label = f"{entity['id']}"
     status = entity['status']
 

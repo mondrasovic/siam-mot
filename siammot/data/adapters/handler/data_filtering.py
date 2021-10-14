@@ -183,8 +183,8 @@ class UADETRACFilter(BaseFilter):
             if entity.id < 0:
                 return True
             
-            if 'person' in entity.labels.keys():  # Due to the pretrained model.
-                return True
+            # if 'person' in entity.labels.keys():  # Due to the pretrained model.
+            #     return True
             
             if ignored_gt_entities:
                 for entity_ in ignored_gt_entities:

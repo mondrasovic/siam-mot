@@ -44,7 +44,7 @@ MODEL:
   
   ROI_HEADS:
     USE_FPN: True
-    BATCH_SIZE_PER_IMAGE: 32
+    BATCH_SIZE_PER_IMAGE: 64
   
   # Box branch configuration
   ROI_BOX_HEAD:
