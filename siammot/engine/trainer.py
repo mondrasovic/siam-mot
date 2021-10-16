@@ -29,7 +29,7 @@ def do_train(
     model.train()
     start_training_time = time.time()
     end = time.time()
-    
+
     for iteration, (images, targets, _) in enumerate(data_loader, start_iter):
         
         if any(len(target) < 1 for target in targets):
@@ -49,7 +49,7 @@ def do_train(
         images = images.to(device)
         targets = [target.to(device) for target in targets]
         
-        result, loss_dict = model(images, targets)
+        _, loss_dict = model(images, targets)
         
         losses = sum(loss for loss in loss_dict.values())
         
@@ -57,7 +57,7 @@ def do_train(
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
         meters.update(loss=losses_reduced, **loss_dict_reduced)
-        
+
         optimizer.zero_grad()
         # Note: If mixed precision is not used, this ends up doing nothing
         # Otherwise apply loss scaling for mixed-precision recipe

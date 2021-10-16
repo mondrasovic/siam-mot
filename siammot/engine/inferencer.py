@@ -169,6 +169,7 @@ class DatasetInference(object):
     def _eval_det_ap(self):
         from ..eval.eval_det_ap import eval_det_ap
         iou_threshold = np.arange(0.5, 0.95, 0.05).tolist()
+        # TODO Supply class table.
         ap_matrix = eval_det_ap(
             self._dataset, self.results,
             data_filter_fn=self._data_filter_fn,

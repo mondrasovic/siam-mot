@@ -79,7 +79,7 @@ def eval_clears_mot(
     metrics = [
         'num_frames', 'mostly_tracked', 'partially_tracked',
         'mostly_lost', 'num_switches', 'num_false_positives',
-        'num_misses', 'mota', 'motp', 'idf1',
+        'num_misses', 'mota', 'motp', 'idf1', 'num_matches', 'precision', 'recall', 'num_detections'
     ]
     
     summary = None
