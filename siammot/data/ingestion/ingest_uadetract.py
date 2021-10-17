@@ -32,7 +32,7 @@ _VEHICLE_TYPE_OLD2NEW_MAP = dict(
     for t_old in g
 )
 _CLASS_LABELS = dict(
-    (vt, i) for i, vt in enumerate(zip(_VEHICLE_TYPES_NEW), start=1)
+    (vt, i) for i, vt in enumerate(_VEHICLE_TYPES_NEW, start=1)
 )
 
 
@@ -71,6 +71,7 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                         
             attrib_attr = target.find('attribute').attrib
             vehicle_type = attrib_attr['vehicle_type']
+            vehicle_type_new = _VEHICLE_TYPE_OLD2NEW_MAP[vehicle_type]
             entity.blob = {
                 'frame_xml':         frame_num,
                 'frame_idx':         frame_idx,
@@ -79,11 +80,10 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                 'speed':             float(attrib_attr['speed']),
                 'trajectory_length': float(attrib_attr['trajectory_length']),
                 'truncation_ratio':  float(attrib_attr['truncation_ratio']),
-                'vehicle_type':      vehicle_type,
+                'vehicle_type':      vehicle_type_new,
                 'seq_name':          seq_name,
             }
-            vehicle_type_new = _VEHICLE_TYPE_OLD2NEW_MAP[vehicle_type]
-            entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type_new]}
+            entity.labels = {vehicle_type_new: _CLASS_LABELS[vehicle_type_new]}
             
             region_overlap = target.find('.//region_overlap')
             if region_overlap is not None:
