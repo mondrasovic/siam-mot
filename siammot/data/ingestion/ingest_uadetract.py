@@ -16,12 +16,24 @@ from gluoncv.torch.data.gluoncv_motion_dataset.utils.ingestion_utils import \
     process_dataset_splits
 
 
-_VEHICLE_TYPES = (
-    'Bus', 'Hatchback', 'MiniVan', 'Police', 'Sedan', 'Suv', 'Taxi',
-    'Truck-Box-Large', 'Truck-Box-Med', 'Truck-Flatbed', 'Truck-Pickup',
-    'Truck-Util', 'Van'
+_VEHICLE_TYPES_NEW = ('Bus', 'Van', 'Car', 'Other')
+_VEHICLE_TYPE_GROUPS = (
+    ('Bus',),
+    ('MiniVan', 'Van'),
+    ('Hatchback', 'Sedan', 'Police', 'Suv', 'Taxi'),
+    (
+        'Truck-Box-Large', 'Truck-Box-Med', 'Truck-Flatbed', 'Truck-Pickup',
+        'Truck-Util'
+    )
 )
-_CLASS_LABELS = dict((vt, i) for i, vt in enumerate(_VEHICLE_TYPES, start=1))
+_VEHICLE_TYPE_OLD2NEW_MAP = dict(
+    (t_old, t_new)
+    for t_new, g in zip(_VEHICLE_TYPES_NEW, _VEHICLE_TYPE_GROUPS)
+    for t_old in g
+)
+_CLASS_LABELS = dict(
+    (vt, i) for i, vt in enumerate(zip(_VEHICLE_TYPES_NEW), start=1)
+)
 
 
 def sample_from_xml(xml_file_path, split_dir_name, args):
@@ -69,7 +81,8 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                 'truncation_ratio':  float(attrib_attr['truncation_ratio']),
                 'vehicle_type':      vehicle_type,
             }
-            entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type]}
+            vehicle_type_new = _VEHICLE_TYPE_OLD2NEW_MAP[vehicle_type]
+            entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type_new]}
             
             region_overlap = target.find('.//region_overlap')
             if region_overlap is not None:
