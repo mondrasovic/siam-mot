@@ -32,7 +32,9 @@ def build_dataset(cfg):
         transforms = build_siam_augmentation(
             cfg, is_train=True, modality=modality
         )
-        data_filter_fn = build_data_filter_fn(dataset_key, is_train=True)
+        data_filter_fn = build_data_filter_fn(
+            dataset_key, is_train=True, dataset=dataset_anno
+        )
         
         if modality == 'image':
             assert 'image_folder' in dataset_info
