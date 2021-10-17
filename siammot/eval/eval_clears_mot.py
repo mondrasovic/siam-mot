@@ -77,9 +77,11 @@ def eval_clears_mot(
     # Make sure to update to the latest version of motmetrics via pip or idf1
     # calculation might be very slow
     metrics = [
-        'num_frames', 'mostly_tracked', 'partially_tracked',
-        'mostly_lost', 'num_switches', 'num_false_positives',
-        'num_misses', 'mota', 'motp', 'idf1', 'num_matches', 'precision', 'recall', 'num_detections'
+        'num_frames', 'mostly_tracked', 'partially_tracked', 'mostly_lost',
+        'num_switches', 'num_false_positives', 'num_misses', 'num_detections',
+        'num_objects', 'num_predictions', 'num_unique_objects',
+        'num_fragmentations', 'mota', 'motp', 'idf1', 'num_matches',
+        'precision', 'recall'
     ]
     
     summary = None

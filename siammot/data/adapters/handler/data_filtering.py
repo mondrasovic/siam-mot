@@ -171,7 +171,7 @@ class UADETRACFilter(BaseFilter):
     def __init__(
         self,
         iou_ignored_entity_thresh: float = 0.5,
-        ignored_region_overlap_thresh: float=  0.5,
+        ignored_region_overlap_thresh: float=  0.9,
         is_train: bool = False,
         **kwargs
     ) -> None:
@@ -219,7 +219,11 @@ class UADETRACFilter(BaseFilter):
         return boxes
     
     @staticmethod
-    def intersection_over_area(box: np.ndarray, boxes: np.ndarray):
+    def intersection_over_area(
+        box: np.ndarray,
+        boxes: np.ndarray,
+        eps: float = 1e-8
+    ) -> np.ndarray:
         assert (box.ndim == 2) and (box.shape[0] == 1)
         assert (boxes.ndim == 2) and (boxes.shape[1] == 4)
 
@@ -228,7 +232,7 @@ class UADETRACFilter(BaseFilter):
         
         wh = (coords_br - coords_tl).clip(min=0)
         intersect_areas = wh[:, 0] * wh[:, 1]
-        box_area = box[0, 2] * box[0, 3]
-        intersect_ratios = intersect_areas / box_area
+        box_area = np.prod(box[0, 2:] - box[0, :2])
+        intersect_ratios = intersect_areas.astype(np.float) / (box_area + eps)
 
         return intersect_ratios

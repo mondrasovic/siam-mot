@@ -13,10 +13,6 @@ from .video_dataset import VideoDataset, VideoDatasetBatchCollator
 
 
 def build_dataset(cfg):
-    """
-
-    """
-    
     dataset_list = cfg.DATASETS.TRAIN
     if not isinstance(dataset_list, (list, tuple)):
         raise RuntimeError(
