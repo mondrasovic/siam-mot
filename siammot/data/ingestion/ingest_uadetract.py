@@ -80,6 +80,7 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                 'trajectory_length': float(attrib_attr['trajectory_length']),
                 'truncation_ratio':  float(attrib_attr['truncation_ratio']),
                 'vehicle_type':      vehicle_type,
+                'seq_name':          seq_name,
             }
             vehicle_type_new = _VEHICLE_TYPE_OLD2NEW_MAP[vehicle_type]
             entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type_new]}
