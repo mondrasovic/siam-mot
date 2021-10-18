@@ -1,3 +1,6 @@
+*.ods
+*.ods#
+
 *.pdf
 *.csv
 
