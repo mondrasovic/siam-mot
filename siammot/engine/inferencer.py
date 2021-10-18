@@ -73,9 +73,11 @@ def do_inference(
 
     video_loader = build_video_loader(cfg, sample, transforms)
     
+    sample_name = sample.id
     sample_result = DataSample(
-        sample.id, raw_info=None, metadata=sample.metadata
+        sample_name, raw_info=None, metadata=sample.metadata
     )
+
     network_time = 0
     for (video_clip, frame_id, timestamps) in tqdm(video_loader):
         frame_id = frame_id.item()
@@ -119,7 +121,7 @@ def do_inference(
             for o in output_boxlists]
         output_boxlists = [o.to(torch.device("cpu")) for o in output_boxlists]
         output_entities = boxlists_to_entities(
-            output_boxlists, frame_id, timestamps
+            output_boxlists, frame_id, timestamps, sample_name
         )
         for entity in output_entities:
             sample_result.add_entity(entity)
