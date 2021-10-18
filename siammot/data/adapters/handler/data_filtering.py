@@ -171,7 +171,7 @@ class UADETRACFilter(BaseFilter):
     def __init__(
         self,
         iou_ignored_entity_thresh: float = 0.5,
-        ignored_region_overlap_thresh: float=  0.9,
+        ignored_region_overlap_thresh: float = 0.95,
         is_train: bool = False,
         **kwargs
     ) -> None:
