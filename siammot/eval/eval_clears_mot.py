@@ -82,17 +82,13 @@ def eval_clears_mot(
         'num_switches',  # Total number of track switches.
         'num_false_positives',  # Total number of false positives (false alarms).
         'num_misses',  # Total number of misses (false negatives).
-        'num_detections',  # Total number of detected objects including matches and switches.
         'num_objects',  # Total number of unique object appearances over all frames (ground-truth).
         'num_predictions',  # Total number of unique prediction appearances over all frames.
         'num_fragmentations',  # Total number of switches from tracked to not tracked.
         'mostly_tracked',  # Number of objects tracked for at least 80 percent of lifespan.
         'partially_tracked',  # Number of objects tracked between 20 and 80 percent of lifespan.
-        'mostly_lost',  # Number of objects tracked less than 20 percent of lifespan.
         'precision',  # Number of detected objects over sum of detected and false positives.
         'recall',  # Number of detections over number of objects.
-        'idp',  # ID measures: global min-cost precision.
-        'idr',  # ID measures: global min-cost recall.
         'idf1',  # ID measures: global min-cost F1 score.
         'mota',  # Multiple object tracker accuracy.
         'motp',  # Multiple object tracker precision.
