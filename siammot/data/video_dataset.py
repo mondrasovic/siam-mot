@@ -58,7 +58,6 @@ class VideoDataset(data.Dataset):
         self.amodal = amodal
     
     def __getitem__(self, item_id):
-        
         video = []
         target = []
         
