@@ -129,6 +129,7 @@ class StageProcessorWorker(threading.Thread):
         output_dir,
         w_scale,
         h_scale,
+        ignored_stages,
         img_stages_iters_queue,
         imgs_processed_queue
     ):
@@ -137,6 +138,7 @@ class StageProcessorWorker(threading.Thread):
         self.output_dir = output_dir
         self.w_scale = w_scale
         self.h_scale = h_scale
+        self.ignored_stages = set(ignored_stages)
         self.img_stages_iters_queue = img_stages_iters_queue
         self.imgs_processed_queue = imgs_processed_queue
     
@@ -149,6 +151,9 @@ class StageProcessorWorker(threading.Thread):
             for j, (stage_name, entities_iter) in enumerate(
                 stages_iter, start=1
             ):
+                if stage_name in self.ignored_stages:
+                    continue
+
                 curr_img = img.copy()
                 for entity in entities_iter:
                     render_entity(curr_img, stage_name, entity)
@@ -176,12 +181,16 @@ class StageProcessorWorker(threading.Thread):
     '--h-scale', type=float, default=1.0, show_default=True,
     help="Height scale factor."  
 )
+@click.option(
+    '-i', '--ignore-stage', multiple=True, help="List of stages to ignore."
+)
 def main(
     imgs_dir_path,
     output_dir_path,
     debug_dump_file_path,
     w_scale,
-    h_scale
+    h_scale,
+    ignore_stage
 ):
     output_dir = pathlib.Path(output_dir_path)
     if output_dir.exists():
@@ -190,9 +199,9 @@ def main(
     
     img_stages_iters_queue = ClosableQueue()
     imgs_processed_queue = ClosableQueue()
-
+    
     stages_processor_thread = StageProcessorWorker(
-        output_dir, w_scale, h_scale, img_stages_iters_queue,
+        output_dir, w_scale, h_scale, ignore_stage, img_stages_iters_queue,
         imgs_processed_queue
     )
     stages_processor_thread.start()

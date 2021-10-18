@@ -171,7 +171,7 @@ class UADETRACFilter(BaseFilter):
     def __init__(
         self,
         iou_ignored_entity_thresh: float = 0.5,
-        ignored_region_overlap_thresh: float=  0.9,
+        ignored_region_overlap_thresh: float = 0.6,
         is_train: bool = False,
         **kwargs
     ) -> None:
@@ -190,20 +190,17 @@ class UADETRACFilter(BaseFilter):
             self.ignored_regions[sample_name] = boxes
     
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
-        if entity.id < 0:
-            return True
-        
         if not self.is_train:
-            if ignored_gt_entities is None:
-                ignored_boxes = self.ignored_regions[entity.blob['sample_name']]
-                if len(ignored_boxes) == 0:
-                    return False
-                
-                box = self.xywh_boxes_to_xyxy_np_array(entity.bbox)
-                area_ratios = self.intersection_over_area(box, ignored_boxes)
-                if np.any(area_ratios > self.ignored_region_overlap_thresh):
-                    return True
-            else:
+            ignored_boxes = self.ignored_regions[entity.blob['sample_name']]
+            if len(ignored_boxes) == 0:
+                return False
+            
+            box = self.xywh_boxes_to_xyxy_np_array(entity.bbox)
+            area_ratios = self.intersection_over_area(box, ignored_boxes)
+            if np.any(area_ratios > self.ignored_region_overlap_thresh):
+                return True
+            
+            if ignored_gt_entities is not None:
                 for entity_ in ignored_gt_entities:
                     iou = bbs_iou(entity, entity_)
                     if iou >= self.iou_ignored_entity_thresh:

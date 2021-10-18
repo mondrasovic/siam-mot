@@ -18,7 +18,7 @@ for %%i in (X_track_solver_debug_*.json) do (
     if exist !curr_out_dir_path!\ (
         echo Skipping !sample_name!
     ) else (
-        python %visualizer_script% !curr_imgs_dir_path! !curr_out_dir_path! %%i
+        python %visualizer_script% !curr_imgs_dir_path! !curr_out_dir_path! %%i -i "input" -i "after NMS" -i "after ReID"
     )
 )
 

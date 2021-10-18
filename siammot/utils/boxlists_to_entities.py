@@ -7,7 +7,7 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 
 
 def boxlists_to_entities(
-    boxlists, firstframe_idx, timestamps, class_table=None
+    boxlists, firstframe_idx, timestamps, sample_name, class_table=None
 ):
     """
     Convert a list of boxlist to entities
@@ -42,6 +42,8 @@ def boxlists_to_entities(
                 entity.id = boxlist.get_field('ids')[j].item()
             entity.frame_num = firstframe_idx + i
             entity.time = timestamps[i]
+            entity.blob['sample_name'] = sample_name
+            
             entities.append(entity)
     
     return entities
