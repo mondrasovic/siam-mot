@@ -46,7 +46,7 @@ class ImageDataset(data.Dataset):
         self._det_classes = [c['name'] for c in
             self.dataset.loadCats(self.dataset.getCatIds())]
         
-        # These are tha mapping table of COCO labels
+        # This is the mapping table of COCO labels
         self.json_category_id_to_contiguous_id = {
             v: i + 1 for i, v in enumerate(self.dataset.getCatIds())
         }
@@ -208,13 +208,11 @@ class ImageDataset(data.Dataset):
 
 
 if __name__ == "__main__":
-    
     from siammot.configs.defaults import cfg
     from siammot.data.video_dataset import VideoDatasetBatchCollator
     from siammot.data.adapters.utils.data_utils import load_dataset_anno
     from siammot.data.adapters.augmentation.build_augmentation import \
         build_siam_augmentation
-    
     
     torch.manual_seed(0)
     
@@ -237,7 +235,7 @@ if __name__ == "__main__":
     )
     dataloader = data.DataLoader(
         dataset,
-        num_workers=4,
+        num_workers=cfg.DATALOADER.NUM_WORKERS,
         batch_sampler=batch_sampler,
         collate_fn=collator
     )

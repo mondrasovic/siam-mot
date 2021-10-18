@@ -74,7 +74,7 @@ def test(cfg, args, output_dir):
     dataset = sorted(dataset)
     
     # do inference on dataset
-    data_filter_fn = build_data_filter_fn(dataset_key)
+    data_filter_fn = build_data_filter_fn(dataset_key, dataset=dataset)
     
     # load public detection
     public_detection = None

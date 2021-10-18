@@ -16,12 +16,24 @@ from gluoncv.torch.data.gluoncv_motion_dataset.utils.ingestion_utils import \
     process_dataset_splits
 
 
-_VEHICLE_TYPES = (
-    'Bus', 'Hatchback', 'MiniVan', 'Police', 'Sedan', 'Suv', 'Taxi',
-    'Truck-Box-Large', 'Truck-Box-Med', 'Truck-Flatbed', 'Truck-Pickup',
-    'Truck-Util', 'Van'
+_VEHICLE_TYPES_NEW = ('Bus', 'Van', 'Car', 'Other')
+_VEHICLE_TYPE_GROUPS = (
+    ('Bus',),
+    ('MiniVan', 'Van'),
+    ('Hatchback', 'Sedan', 'Police', 'Suv', 'Taxi'),
+    (
+        'Truck-Box-Large', 'Truck-Box-Med', 'Truck-Flatbed', 'Truck-Pickup',
+        'Truck-Util'
+    )
 )
-_CLASS_LABELS = dict((vt, i) for i, vt in enumerate(_VEHICLE_TYPES, start=1))
+_VEHICLE_TYPE_OLD2NEW_MAP = dict(
+    (t_old, t_new)
+    for t_new, g in zip(_VEHICLE_TYPES_NEW, _VEHICLE_TYPE_GROUPS)
+    for t_old in g
+)
+_CLASS_LABELS = dict(
+    (vt, i) for i, vt in enumerate(_VEHICLE_TYPES_NEW, start=1)
+)
 
 
 def sample_from_xml(xml_file_path, split_dir_name, args):
@@ -39,8 +51,8 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
     tree = ElementTree.parse(xml_file_path)
     root = tree.getroot()
 
-    seq_name = root.attrib['name']
-    sample = DataSample(id=seq_name)
+    sample_name = root.attrib['name']
+    sample = DataSample(id=sample_name)
 
     frame_num = 0
     for frame in root.findall('./frame'):
@@ -59,39 +71,34 @@ def sample_from_xml(xml_file_path, split_dir_name, args):
                         
             attrib_attr = target.find('attribute').attrib
             vehicle_type = attrib_attr['vehicle_type']
+            vehicle_type_new = _VEHICLE_TYPE_OLD2NEW_MAP[vehicle_type]
             entity.blob = {
-                'frame_xml':         frame_num,
-                'frame_idx':         frame_idx,
-                'color':             attrib_attr['color'],
-                'orientation':       float(attrib_attr['orientation']),
-                'speed':             float(attrib_attr['speed']),
-                'trajectory_length': float(attrib_attr['trajectory_length']),
-                'truncation_ratio':  float(attrib_attr['truncation_ratio']),
-                'vehicle_type':      vehicle_type,
+                'frame_xml':    frame_num,
+                'frame_idx':    frame_idx,
+                'vehicle_type': vehicle_type_new,
+                'sample_name':  sample_name,
             }
-            entity.labels = {vehicle_type: _CLASS_LABELS[vehicle_type]}
-            
-            region_overlap = target.find('.//region_overlap')
-            if region_overlap is not None:
-                region_overlap_attr = region_overlap.attrib
-                occlusion_status = region_overlap_attr['occlusion_status']
-                occlusion_box = _read_box(region_overlap_attr)
-                entity.blob['occlusion_status'] = int(occlusion_status)
-                entity.blob['occlusion_box'] = occlusion_box
+            entity.labels = {vehicle_type_new: _CLASS_LABELS[vehicle_type_new]}
 
             sample.add_entity(entity)
+    
+    ignored_regions = []
+    for ignored_region in root.findall('./ignored_region/box'):
+        box = _read_box(ignored_region.attrib)
+        ignored_regions.append(box)
     
     # Need to replace the Windows path separator by UNIX-like to make the path
     # working across different platforms. Linux struggles with mixing path
     # separators whereas Windows does not.
-    rel_data_path = os.path.join(split_dir_name, seq_name).replace('\\', '/')
+    rel_data_path = os.path.join(split_dir_name, sample_name).replace('\\', '/')
     sample.metadata = {
         FieldNames.DATA_PATH:  rel_data_path,
         FieldNames.FPS:        args.fps,
         FieldNames.NUM_FRAMES: frame_num,
         FieldNames.RESOLUTION: {
-            'width': args.img_width, 'height': args.img_height
-        }
+            'width': args.img_width, 'height': args.img_height,
+        },
+        'ignored_regions':     ignored_regions,
     }
 
     return sample

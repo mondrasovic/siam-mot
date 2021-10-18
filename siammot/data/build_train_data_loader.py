@@ -13,10 +13,6 @@ from .video_dataset import VideoDataset, VideoDatasetBatchCollator
 
 
 def build_dataset(cfg):
-    """
-
-    """
-    
     dataset_list = cfg.DATASETS.TRAIN
     if not isinstance(dataset_list, (list, tuple)):
         raise RuntimeError(
@@ -32,7 +28,9 @@ def build_dataset(cfg):
         transforms = build_siam_augmentation(
             cfg, is_train=True, modality=modality
         )
-        data_filter_fn = build_data_filter_fn(dataset_key, is_train=True)
+        data_filter_fn = build_data_filter_fn(
+            dataset_key, is_train=True, dataset=dataset_anno
+        )
         
         if modality == 'image':
             assert 'image_folder' in dataset_info

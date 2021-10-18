@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 
@@ -69,7 +69,7 @@ class CRPFilter(BaseFilter):
         ignored ground truth entity
         """
     
-    def __init__(self, iou_thresh=0.2, is_train=False) -> None:
+    def __init__(self, iou_thresh=0.2, is_train=False, **kwargs) -> None:
         """
         :param iou_thresh: a predicted entity which overlaps with any ignored
         gt entity with at least
@@ -100,7 +100,8 @@ class MOTFilter(BaseFilter):
         self,
         visibility_thresh=0.1,
         iou_thresh=0.5,
-        is_train=False
+        is_train=False,
+        **kwargs,
     ) -> None:
         self.visibility_thresh = visibility_thresh
         self.iou_thresh = iou_thresh
@@ -135,7 +136,11 @@ class AOTFilter(BaseFilter):
     """
     
     def __init__(
-        self, range_distance_thresh=1200, iou_thresh=0.2, is_train=False
+        self,
+        range_distance_thresh=1200,
+        iou_thresh=0.2,
+        is_train=False,
+        **kwargs
     ) -> None:
         self.range_distance_thresh = range_distance_thresh
         self.iou_thresh = iou_thresh
@@ -163,23 +168,71 @@ class AOTFilter(BaseFilter):
 
 
 class UADETRACFilter(BaseFilter):
-    def __init__(self, iou_thresh: float = 0.5, is_train: bool = False) -> None:
+    def __init__(
+        self,
+        iou_ignored_entity_thresh: float = 0.5,
+        ignored_region_overlap_thresh: float=  0.9,
+        is_train: bool = False,
+        **kwargs
+    ) -> None:
         super().__init__()
 
-        self.iou_thresh: float = iou_thresh
+        self.iou_ignored_entity_thresh: float = iou_ignored_entity_thresh
+        self.ignored_region_overlap_thresh: float =\
+            ignored_region_overlap_thresh
         self.is_train: bool = is_train
+
+        dataset = kwargs.get('dataset', [])
+        self.ignored_regions: Dict[str, np.ndarray] = {}
+        for sample_name, data_sample in dataset:
+            boxes = data_sample.metadata['ignored_regions']
+            boxes = self.xywh_boxes_to_xyxy_np_array(boxes)
+            self.ignored_regions[sample_name] = boxes
     
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
+        if entity.id < 0:
+            return True
+        
         if not self.is_train:
-            if entity.id < 0:
-                return True
-            
-            # if 'person' in entity.labels.keys():  # Due to the pretrained model.
-            #     return True
-            
-            if ignored_gt_entities:
+            if ignored_gt_entities is None:
+                ignored_boxes = self.ignored_regions[entity.blob['sample_name']]
+                if len(ignored_boxes) == 0:
+                    return False
+                
+                box = self.xywh_boxes_to_xyxy_np_array(entity.bbox)
+                area_ratios = self.intersection_over_area(box, ignored_boxes)
+                if np.any(area_ratios > self.ignored_region_overlap_thresh):
+                    return True
+            else:
                 for entity_ in ignored_gt_entities:
-                    if bbs_iou(entity, entity_) >= self.iou_thresh:
+                    iou = bbs_iou(entity, entity_)
+                    if iou >= self.iou_ignored_entity_thresh:
                         return True
 
         return False
+    
+    @staticmethod
+    def xywh_boxes_to_xyxy_np_array(boxes):
+        boxes = np.atleast_2d(np.asarray(boxes))
+        boxes[:, 2:] += boxes[:, :2]
+
+        return boxes
+    
+    @staticmethod
+    def intersection_over_area(
+        box: np.ndarray,
+        boxes: np.ndarray,
+        eps: float = 1e-8
+    ) -> np.ndarray:
+        assert (box.ndim == 2) and (box.shape[0] == 1)
+        assert (boxes.ndim == 2) and (boxes.shape[1] == 4)
+
+        coords_tl = np.maximum(boxes[:, :2], box[..., :2])
+        coords_br = np.minimum(boxes[:, 2:], box[..., 2:])
+        
+        wh = (coords_br - coords_tl).clip(min=0)
+        intersect_areas = wh[:, 0] * wh[:, 1]
+        box_area = np.prod(box[0, 2:] - box[0, :2])
+        intersect_ratios = intersect_areas.astype(np.float) / (box_area + eps)
+
+        return intersect_ratios
