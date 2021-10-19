@@ -107,7 +107,7 @@ class TrackHead(torch.nn.Module):
         else:
             track_memory = self.tracker.extract_cache(features, active_tracks)
         
-        # track_memory = self._update_memory_with_dormant_track(track_memory)
+        track_memory = self._update_memory_with_dormant_track(track_memory)
         self.track_pool.update_cache(track_memory)
         
         return track_memory
