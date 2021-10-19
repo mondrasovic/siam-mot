@@ -269,7 +269,9 @@ def main(
             cv.imshow(_WIN_NAME, img)
             if (cv.waitKey(0) & 0xff) == ord('q'):
                 break
-    cv.destroyWindow(_WIN_NAME)
+    
+    if cv.getWindowProperty(_WIN_NAME, cv.WND_PROP_VISIBLE) >= 1:
+        cv.destroyWindow(_WIN_NAME)
 
     return 0
 
