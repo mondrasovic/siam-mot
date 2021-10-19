@@ -56,9 +56,13 @@ cfg.MODEL.TRACK_HEAD.TRACK_THRESH = 0.3
 cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH = 0.6
 cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH = 0.4
 cfg.MODEL.TRACK_HEAD.NMS_THRESH = 0.5  
-cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH = 0.4  # threshold for <-1, 1> interval
 # maximum number of frames that a track can be dormant
 cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES = 25
+
+# ReID related configurations
+cfg.MODEL.TRACK_HEAD.USE_REID = False
+cfg.MODEL.TRACK_HEAD.ADD_DEBUG = False
+cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH = 0.4  # threshold for <-1, 1> interval
 
 # track proposal sampling
 cfg.MODEL.TRACK_HEAD.PROPOSAL_PER_IMAGE = 256

@@ -9,7 +9,7 @@ from yacs.config import CfgNode
 
 from siammot.modelling.box_head.box_head import ROIBoxHead
 from siammot.modelling.track_head.track_head import TrackHead
-from siammot.modelling.track_head.track_solver import TrackSolver
+from siammot.modelling.track_head.track_solver import TrackSolverReid
 from .box_head.box_head import build_roi_box_head
 from .track_head.track_head import build_track_head
 from .track_head.track_solver import build_track_solver
@@ -26,7 +26,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         self,
         cfg: CfgNode,
         heads: List[Union[Tuple[str, ROIBoxHead], Tuple[str, TrackHead], Tuple[
-            str, TrackSolver]]]
+            str, TrackSolverReid]]]
     ) -> None:
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()

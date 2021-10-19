@@ -1,3 +1,5 @@
+import abc
+
 from typing import List, Tuple
 
 import torch
@@ -51,30 +53,55 @@ def get_nms_boxes(detection: BoxList):
     return detection, _ids, _scores
 
 
-class TrackSolver(torch.nn.Module):
+class TrackSolver(torch.nn.Module, abc.ABC):
     def __init__(
         self,
         track_pool: TrackPool,
-        reid_man: ReIdManager,
         track_thresh: float = 0.3,
         start_track_thresh: float = 0.5,
         resume_track_thresh: float = 0.4,
         nms_thresh: float = 0.5,
-        sim_thresh: float = 0.4
+        add_debug: bool = False
     ) -> None:
-        super(TrackSolver, self).__init__()
-        
-        self.reid_man: ReIdManager = reid_man
+        super().__init__()
+
         self.track_pool: TrackPool = track_pool
         self.track_thresh: float = track_thresh
         self.start_thresh: float = start_track_thresh
         self.resume_track_thresh: float = resume_track_thresh
 
         self.nms_thresh: float = nms_thresh
-        self.sim_thresh: float = sim_thresh
 
-        self.solver_debugger: TrackSolverDebugger =\
-            build_or_get_existing_track_solver_debugger()
+        self.solver_debugger = (
+            build_or_get_existing_track_solver_debugger() if add_debug else None
+        )
+
+    def _add_debug(self, stage, detections):
+        if self.solver_debugger:
+            self.solver_debugger.add_detections(
+                stage, detections, self.track_pool.get_active_ids(),
+                self.track_pool.get_dormant_ids()
+    )
+
+    def _debug_save_frame(self):
+        if self.solver_debugger:
+            self.solver_debugger.save_frame()
+
+
+class TrackSolverOrig(TrackSolver):
+    def __init__(
+        self,
+        track_pool: TrackPool,
+        track_thresh: float = 0.3,
+        start_track_thresh: float = 0.5,
+        resume_track_thresh: float = 0.4,
+        nms_thresh: float = 0.5,
+        add_debug: bool = False
+    ) -> None:
+        super().__init__(
+            track_pool, track_thresh, start_track_thresh, resume_track_thresh,
+            nms_thresh, add_debug
+        )
     
     def forward(self, detection: List[BoxList]):
         """
@@ -154,165 +181,189 @@ class TrackSolver(torch.nn.Module):
         _ids[inactive_idxs] = -1
         
         self._add_debug('output', combined_detection)
-        self.solver_debugger.save_frame()
+        self._debug_save_frame()
 
         track_pool.expire_tracks()
         track_pool.increment_frame()
         
         return [combined_detection]
 
-    # def forward(self, detections: List[BoxList]):
-    #     """
-    #     The solver is to merge predictions from the detection branch as well as
-    #     from the track branch. The goal is to assign a unique track ID to
-    #     bounding boxes that are deemed tracked.
 
-    #     :param detection: it includes three set of distinctive prediction:
-    #         prediction propagated from active tracks (2 >= score > 1, id >= 0),
-    #         prediction propagated from dormant tracks (2 >= score > 1, id >= 0),
-    #         prediction from detection (1 > score > 0, id = -1).
-    #     :return:
-    #     """
-    #     assert len(detections) == 1
-
-    #     detections = detections[0]
-    #     if len(detections) == 0:
-    #         return [detections]
+class TrackSolverReid(TrackSolver):
+    def __init__(
+        self,
+        track_pool: TrackPool,
+        reid_man: ReIdManager,
+        track_thresh: float = 0.3,
+        start_track_thresh: float = 0.5,
+        resume_track_thresh: float = 0.4,
+        nms_thresh: float = 0.5,
+        sim_thresh: float = 0.4,
+        add_debug: bool = False
+    ) -> None:
+        super().__init__(
+            track_pool, track_thresh, start_track_thresh, resume_track_thresh,
+            nms_thresh, add_debug
+        )
         
-    #     self._add_debug('input', detections)
+        self.reid_man: ReIdManager = reid_man
+        self.sim_thresh: float = sim_thresh
 
-    #     nms_detections = self._nms_non_dormant_detections(detections)
-    #     nms_scores = nms_detections.get_field('scores')
-    #     nms_scores[nms_scores >= 1.0] -= 1.0
+    def forward(self, detections: List[BoxList]):
+        """
+        The solver is to merge predictions from the detection branch as well as
+        from the track branch. The goal is to assign a unique track ID to
+        bounding boxes that are deemed tracked.
 
-    #     self._add_debug('after NMS', nms_detections)
+        :param detection: it includes three set of distinctive prediction:
+            prediction propagated from active tracks (2 >= score > 1, id >= 0),
+            prediction propagated from dormant tracks (2 >= score > 1, id >= 0),
+            prediction from detection (1 > score > 0, id = -1).
+        :return:
+        """
+        assert len(detections) == 1
 
-    #     orig_ids = detections.get_field('ids')
-    #     nms_ids = nms_detections.get_field('ids')
-    #     nms_removed_ids = set(orig_ids.tolist()) - set(nms_ids.tolist())
-    #     for curr_id in nms_removed_ids:
-    #         if curr_id >= 0:
-    #             self.track_pool.suspend_track(curr_id)
-
-    #     dormant_mask = self._build_dormant_mask(nms_detections)
-    #     dormant_detections = nms_detections[dormant_mask]
-    #     unassigned_mask = (
-    #         (nms_ids < 0) & (nms_scores >= self.resume_track_thresh)
-    #     )
-    #     unassigned_detections = nms_detections[unassigned_mask]
-
-    #     sim_assignment_res = self._calc_linear_sum_assignment_rows_cols(
-    #         unassigned_detections, dormant_detections
-    #     )
-    #     cos_sim_matrix, row_idxs, col_idxs = sim_assignment_res
-    #     if len(row_idxs) > 0:
-    #         unassigned_idxs, = torch.where(unassigned_mask)
-    #         dormant_idxs, = torch.where(dormant_mask)
-    #     reid_preserved_mask = torch.full_like(nms_ids, True, dtype=torch.bool)
-    #     for row, col in zip(row_idxs, col_idxs):
-    #         if cos_sim_matrix[row, col] >= self.sim_thresh:
-    #             unassigned_idx = unassigned_idxs[row]
-    #             dormant_idx = dormant_idxs[col]
-    #             dormant_id = nms_ids[dormant_idx].item()
-    #             nms_ids[unassigned_idx] = dormant_id
-    #             reid_preserved_mask[dormant_idx] = False
-    #             self.track_pool.resume_track(dormant_id)
+        detections = detections[0]
+        if len(detections) == 0:
+            return [detections]
         
-    #     reid_detections = nms_detections[reid_preserved_mask]
-    #     reid_ids = reid_detections.get_field('ids')
-    #     reid_scores = reid_detections.get_field('scores')
+        self._add_debug('input', detections)
 
-    #     self._add_debug('after ReID', reid_detections)
+        nms_detections = self._nms_non_dormant_detections(detections)
+        nms_scores = nms_detections.get_field('scores')
+        nms_scores[nms_scores >= 1.0] -= 1.0
 
-    #     start_idxs, = torch.where(
-    #         (reid_ids < 0) & (reid_scores >= self.start_thresh)
-    #     )
-    #     for idx in start_idxs:
-    #         reid_ids[idx] = self.track_pool.start_track()
+        self._add_debug('after NMS', nms_detections)
+
+        orig_ids = detections.get_field('ids')
+        nms_ids = nms_detections.get_field('ids')
+        nms_removed_ids = set(orig_ids.tolist()) - set(nms_ids.tolist())
+        for curr_id in nms_removed_ids:
+            if curr_id >= 0:
+                self.track_pool.suspend_track(curr_id)
+
+        dormant_mask = self._build_dormant_mask(nms_detections)
+        dormant_detections = nms_detections[dormant_mask]
+        unassigned_mask = (
+            (nms_ids < 0) & (nms_scores >= self.resume_track_thresh)
+        )
+        unassigned_detections = nms_detections[unassigned_mask]
+
+        sim_assignment_res = self._calc_linear_sum_assignment_rows_cols(
+            unassigned_detections, dormant_detections
+        )
+        cos_sim_matrix, row_idxs, col_idxs = sim_assignment_res
+        if len(row_idxs) > 0:
+            unassigned_idxs, = torch.where(unassigned_mask)
+            dormant_idxs, = torch.where(dormant_mask)
+        reid_preserved_mask = torch.full_like(nms_ids, True, dtype=torch.bool)
+        for row, col in zip(row_idxs, col_idxs):
+            if cos_sim_matrix[row, col] >= self.sim_thresh:
+                unassigned_idx = unassigned_idxs[row]
+                dormant_idx = dormant_idxs[col]
+                dormant_id = nms_ids[dormant_idx].item()
+                nms_ids[unassigned_idx] = dormant_id
+                reid_preserved_mask[dormant_idx] = False
+                self.track_pool.resume_track(dormant_id)
         
-    #     active_ids = self.track_pool.get_active_ids()
-    #     inactive_mask = (reid_ids >= 0) & (reid_scores < self.track_thresh)
-    #     inactive_idxs, = torch.where(inactive_mask)
-    #     for idx in inactive_idxs:
-    #         curr_id = reid_ids[idx].item()
-    #         if curr_id in active_ids:
-    #             self.track_pool.suspend_track(curr_id)
-    #     reid_ids[inactive_idxs] = -1  # TODO Dormant tracks are included here.
-        
-    #     self.track_pool.expire_tracks()
-    #     self.track_pool.increment_frame()
+        reid_detections = nms_detections[reid_preserved_mask]
+        reid_ids = reid_detections.get_field('ids')
+        reid_scores = reid_detections.get_field('scores')
 
-    #     self._add_debug('output', reid_detections)
-    #     self.solver_debugger.save_frame()
-        
-    #     return [reid_detections]
+        self._add_debug('after ReID', reid_detections)
 
-    # def _nms_non_dormant_detections(self, detections: BoxList) -> BoxList:
-    #     dormant_mask = self._build_dormant_mask(detections)
-    #     non_dormant_mask = ~dormant_mask
-    #     non_dormant_idxs, = torch.where(non_dormant_mask)
-    #     non_dormant_detections = detections[non_dormant_mask]
-    #     nms_non_dormant_keep_idxs = boxlist_nms_idxs_only(
-    #         non_dormant_detections, self.nms_thresh
-    #     )        
+        start_idxs, = torch.where(
+            (reid_ids < 0) & (reid_scores >= self.start_thresh)
+        )
+        for idx in start_idxs:
+            reid_ids[idx] = self.track_pool.start_track()
         
-    #     nms_non_dormant_mask = torch.full(
-    #         (len(non_dormant_detections),), False, dtype=torch.bool,
-    #         device=dormant_mask.device
-    #     )
-    #     nms_non_dormant_mask[nms_non_dormant_keep_idxs] = True
-    #     nms_preserved_mask = dormant_mask.clone()
-    #     nms_preserved_mask[non_dormant_idxs] = nms_non_dormant_mask
-    #     nms_detections = detections[nms_preserved_mask]
+        active_ids = self.track_pool.get_active_ids()
+        inactive_mask = (reid_ids >= 0) & (reid_scores < self.track_thresh)
+        inactive_idxs, = torch.where(inactive_mask)
+        for idx in inactive_idxs:
+            curr_id = reid_ids[idx].item()
+            if curr_id in active_ids:
+                self.track_pool.suspend_track(curr_id)
+        reid_ids[inactive_idxs] = -1  # TODO Dormant tracks are included here.
+        
+        self.track_pool.expire_tracks()
+        self.track_pool.increment_frame()
 
-    #     return nms_detections
+        self._add_debug('output', reid_detections)
+        self._debug_save_frame()
+        
+        return [reid_detections]
+
+    def _nms_non_dormant_detections(self, detections: BoxList) -> BoxList:
+        dormant_mask = self._build_dormant_mask(detections)
+        non_dormant_mask = ~dormant_mask
+        non_dormant_idxs, = torch.where(non_dormant_mask)
+        non_dormant_detections = detections[non_dormant_mask]
+        nms_non_dormant_keep_idxs = boxlist_nms_idxs_only(
+            non_dormant_detections, self.nms_thresh
+        )        
+        
+        nms_non_dormant_mask = torch.full(
+            (len(non_dormant_detections),), False, dtype=torch.bool,
+            device=dormant_mask.device
+        )
+        nms_non_dormant_mask[nms_non_dormant_keep_idxs] = True
+        nms_preserved_mask = dormant_mask.clone()
+        nms_preserved_mask[non_dormant_idxs] = nms_non_dormant_mask
+        nms_detections = detections[nms_preserved_mask]
+
+        return nms_detections
     
-    # def _build_dormant_mask(self, detections: BoxList) -> torch.Tensor:
-    #     ids = detections.get_field('ids')
-    #     dormant_ids = self.track_pool.get_dormant_ids()
-    #     mask = torch.tensor(
-    #         [int(x) in dormant_ids for x in ids], device=ids.device
-    #     )
-    #     return mask
+    def _build_dormant_mask(self, detections: BoxList) -> torch.Tensor:
+        ids = detections.get_field('ids')
+        dormant_ids = self.track_pool.get_dormant_ids()
+        mask = torch.tensor(
+            [int(x) in dormant_ids for x in ids], device=ids.device
+        )
+        return mask
     
-    # def _calc_linear_sum_assignment_rows_cols(
-    #     self,
-    #     unassigned_detections: BoxList,
-    #     dormant_detections: BoxList
-    # ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    #     dormant_frame_idxs = [
-    #         self.track_pool.get_last_active_frame_idx(id_.item())
-    #         for id_ in dormant_detections.get_field('ids')
-    #     ]
-    #     current_frame_idx = self.track_pool.frame_idx
-    #     unassigned_frame_idxs = [current_frame_idx] * len(unassigned_detections)
+    def _calc_linear_sum_assignment_rows_cols(
+        self,
+        unassigned_detections: BoxList,
+        dormant_detections: BoxList
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        dormant_frame_idxs = [
+            self.track_pool.get_last_active_frame_idx(id_.item())
+            for id_ in dormant_detections.get_field('ids')
+        ]
+        current_frame_idx = self.track_pool.frame_idx
+        unassigned_frame_idxs = [current_frame_idx] * len(unassigned_detections)
 
-    #     cos_sim_matrix = self.reid_man.calc_cosine_sim_matrix(
-    #         unassigned_frame_idxs, unassigned_detections,
-    #         dormant_frame_idxs, dormant_detections
-    #     )
-    #     cos_sim_matrix = cos_sim_matrix.cpu().numpy()
-    #     row_idxs, col_idxs = linear_sum_assignment(-cos_sim_matrix)
+        cos_sim_matrix = self.reid_man.calc_cosine_sim_matrix(
+            unassigned_frame_idxs, unassigned_detections,
+            dormant_frame_idxs, dormant_detections
+        )
+        cos_sim_matrix = cos_sim_matrix.cpu().numpy()
+        row_idxs, col_idxs = linear_sum_assignment(-cos_sim_matrix)
 
-    #     return cos_sim_matrix, row_idxs, col_idxs
+        return cos_sim_matrix, row_idxs, col_idxs
     
-    def _add_debug(self, stage, detections):
-        self.solver_debugger.add_detections(
-            stage, detections, self.track_pool.get_active_ids(),
-            self.track_pool.get_dormant_ids()
-    )
-
 
 def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
-    reid_man = build_or_get_existing_reid_manager(cfg)
-    track_solver = TrackSolver(
-        track_pool,
-        reid_man,
-        cfg.MODEL.TRACK_HEAD.TRACK_THRESH,
-        cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH,
-        cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH,
-        cfg.MODEL.TRACK_HEAD.NMS_THRESH,
-        cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
-    )
+    track_thresh = cfg.MODEL.TRACK_HEAD.TRACK_THRESH
+    start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_HEAD
+    resume_track_thresh = cfg.MODEL.TRACK_HEAD.RESUME_TRACK_HEAD
+    nms_thresh = cfg.MODEL.TRACK_HEAD.NMS_THRESH
+    use_debug = cfg.MODEL.TRACK_HEAD.USE_DEBUG
+
+    if cfg.MODEL.TRACK_HEAD.USE_REID:
+        reid_man = build_or_get_existing_reid_manager(cfg)
+        cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
+
+        track_solver = TrackSolverReid(
+            track_pool, reid_man, track_thresh, start_track_thresh,
+            resume_track_thresh, nms_thresh, cos_sim_thresh, use_debug
+        )
+    else:
+        track_solver = TrackSolverOrig(
+            track_pool, track_thresh, start_track_thresh, resume_track_thresh,
+            nms_thresh, use_debug
+        )
 
     return track_solver
