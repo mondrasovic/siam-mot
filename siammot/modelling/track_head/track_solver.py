@@ -15,9 +15,9 @@ from siammot.modelling.track_head.track_utils import TrackPool
 from siammot.modelling.reid.reid_man import (
     ReIdManager, build_or_get_existing_reid_manager
 )
-from siammot.modelling.track_head.track_solver_debug import (
-    TrackSolverDebugger, build_or_get_existing_track_solver_debugger
-)
+from siammot.modelling.track_head.track_solver_debug import\
+    build_or_get_existing_track_solver_debugger
+
 
 def boxlist_nms_idxs_only(
     boxlist: BoxList,
