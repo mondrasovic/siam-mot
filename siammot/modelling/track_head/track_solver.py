@@ -347,8 +347,8 @@ class TrackSolverReid(TrackSolver):
 
 def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
     track_thresh = cfg.MODEL.TRACK_HEAD.TRACK_THRESH
-    start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_HEAD
-    resume_track_thresh = cfg.MODEL.TRACK_HEAD.RESUME_TRACK_HEAD
+    start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH
+    resume_track_thresh = cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH
     nms_thresh = cfg.MODEL.TRACK_HEAD.NMS_THRESH
     use_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
 
