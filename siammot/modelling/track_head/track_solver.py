@@ -350,7 +350,7 @@ def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
     start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_HEAD
     resume_track_thresh = cfg.MODEL.TRACK_HEAD.RESUME_TRACK_HEAD
     nms_thresh = cfg.MODEL.TRACK_HEAD.NMS_THRESH
-    use_debug = cfg.MODEL.TRACK_HEAD.USE_DEBUG
+    use_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
 
     if cfg.MODEL.TRACK_HEAD.USE_REID:
         reid_man = build_or_get_existing_reid_manager(cfg)
