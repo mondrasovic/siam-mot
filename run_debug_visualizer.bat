@@ -7,7 +7,9 @@ set "data_subset=Test"
 set "dataset_dir_path=E:\datasets\UA-DETRAC_GluonCV\raw_data\Insight-MVT_Annotation_%data_subset%"
 set "out_dir_path=E:\solver_debug_visualization"
 
-for %%i in (X_track_solver_debug_*.json) do (
+set test_dir_name=%1
+
+for %%i in (%test_dir_name%/DLA-34-FPN_box_EMM_UA_DETRAC/X_track_solver_debug_*.json) do (
     echo -----------------------------------------------------------------------
     set "base_name=%%~ni"
     set "sample_name=!base_name:~-9!"

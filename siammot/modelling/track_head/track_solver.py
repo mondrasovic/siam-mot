@@ -221,8 +221,7 @@ class TrackSolverReid(TrackSolver):
             prediction from detection (1 > score > 0, id = -1).
         :return:
         """
-        print("********* RUNNING SOLVER WITH REID")
-        
+
         assert len(detections) == 1
 
         detections = detections[0]
