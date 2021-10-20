@@ -2,6 +2,8 @@ import logging
 import os
 import time
 
+from typing import Optional
+
 import numpy as np
 import torch
 
@@ -44,7 +46,8 @@ def do_inference(
     model,
     sample: DataSample,
     transforms=None,
-    given_detection: DataSample = None
+    given_detection: DataSample = None,
+    output_dir_path: Optional[str] = None
 ) -> DataSample:
     """
     Do inference on a specific video (sample)
@@ -56,6 +59,7 @@ def do_inference(
     :param given_detection: the cached detections from other model,
            it means that the detection branch is disabled in the
            model forward pass
+    :param output_dir_path: output directory path to store debug information
     :return: the detection results in the format of DataSample
     """
     logger = logging.getLogger(__name__)
@@ -66,10 +70,12 @@ def do_inference(
     reid_manager.reset()
     inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
 
-    solver_debugger = build_or_get_existing_track_solver_debugger()
-    solver_debugger.reset()
-    solver_debugger.sample_width = sample.width
-    solver_debugger.sample_height = sample.height
+    add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
+    if add_debug:
+        solver_debugger = build_or_get_existing_track_solver_debugger()
+        solver_debugger.reset()
+        solver_debugger.sample_width = sample.width
+        solver_debugger.sample_height = sample.height
 
     video_loader = build_video_loader(cfg, sample, transforms)
     
@@ -134,8 +140,13 @@ def do_inference(
         )
     )
 
-    # TODO Implement better path handling.
-    solver_debugger.save_to_file(f"track_solver_debug_{sample.id}.json")
+    if add_debug:
+        file_name = f'track_solver_debug_{sample.id}.json'
+        if output_dir_path:
+            file_path = os.path.join(output_dir_path, file_name)
+        else:
+            file_path = file_name
+        solver_debugger.save_to_file(file_path)
     
     return sample_result
 
@@ -150,7 +161,7 @@ class DatasetInference(object):
         data_filter_fn=None,
         public_detection=None,
         distributed=False,
-        motsummary_csv_file_path=None
+        motsummary_csv_file_name=None
     ): 
         self._cfg = cfg
         
@@ -164,7 +175,7 @@ class DatasetInference(object):
         self._track_conf = 0.7
         self._track_len = 5
         self._logger = logging.getLogger(__name__)
-        self._motsummary_csv_file_path = motsummary_csv_file_path
+        self._motsummary_csv_file_name = motsummary_csv_file_name
 
         self.results = dict()
     
@@ -212,7 +223,8 @@ class DatasetInference(object):
             sample_result = do_inference(
                 self._cfg, self._model, sample,
                 transforms=self._transform,
-                given_detection=given_detection
+                given_detection=given_detection,
+                output_dir_path=self._output_dir
             )
             sample_result.dump(cache_path)
         return sample_result
@@ -261,5 +273,8 @@ class DatasetInference(object):
             "\n---------------- Finish evaluating ----------------\n"
         )
 
-        if self._motsummary_csv_file_path is not None:
-            motsummary.to_csv(self._motsummary_csv_file_path)
+        if self._motsummary_csv_file_name is not None:
+            csv_file_path = os.path.join(
+                self._output_dir, self._motsummary_csv_file_name
+            )
+            motsummary.to_csv(csv_file_path)

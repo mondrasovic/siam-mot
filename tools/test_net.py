@@ -81,10 +81,9 @@ def test(cfg, args, output_dir):
     if cfg.INFERENCE.USE_GIVEN_DETECTIONS:
         public_detection = load_public_detection(cfg, dataset_key)
     
-    eval_csv_file_path = args.eval_csv_file
     dataset_inference = DatasetInference(
         cfg, model, dataset, output_dir, data_filter_fn, public_detection,
-        motsummary_csv_file_path=eval_csv_file_path
+        motsummary_csv_file_name=args.eval_csv_file
     )
     dataset_inference()
 
