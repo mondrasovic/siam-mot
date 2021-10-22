@@ -16,7 +16,7 @@ DATASETS:
   TRAIN_PATH: 'image_train'
   QUERY_PATH: 'image_query'
   GALLERY_PATH: 'image_test'
-  NUM_CLASSES: 12345 # Number of classes of UA-DETRAC_ReID (+VeRi) dataset
+  NUM_CLASSES: 6527 # Number of classes of UA-DETRAC_ReID (+VeRi) dataset
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
