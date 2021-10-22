@@ -19,8 +19,9 @@ from siammot.modelling.reid.config import cfg as cfg_reid
 from siammot.modelling.reid.model.baseline import Baseline as ReidBaseline
 
 
+# TODO Make the configuration path configurable through the main config. file.
 _instance = None
-_reid_config_file_path = "./configs/reid/veri.yml"
+_reid_config_file_path = "./configs/reid/uadetrac_reid.yml"
 
 
 def cos_sim_matrix(
