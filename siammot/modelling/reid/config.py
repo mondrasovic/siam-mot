@@ -56,6 +56,8 @@ _C.DATASETS.TRAIN_PATH = 'bounding_box_train'
 _C.DATASETS.QUERY_PATH = 'query'
 # PATH to gallery set
 _C.DATASETS.GALLERY_PATH = 'bounding_box_test'
+# Number of classes in a dataset.
+_C.DATASETS.NUM_CLASSES = 100
 
 # -----------------------------------------------------------------------------
 # DataLoader

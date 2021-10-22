@@ -187,7 +187,7 @@ def build_or_get_existing_reid_manager(cfg: CfgNode) -> ReIdManager:
         cfg_reid.merge_from_file(_reid_config_file_path)
         cfg_reid.freeze()
 
-        baseline = build_reid_model(cfg_reid)
+        baseline = build_reid_model(cfg_reid, cfg_reid.DATASETS.NUM_CLASSES)
         param_dict = torch.load(cfg_reid.TEST.WEIGHT)
         baseline.load_state_dict(param_dict)
         baseline.cuda()

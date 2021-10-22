@@ -57,7 +57,7 @@ MODEL:
   
   TRACK_HEAD:
     MAX_DORMANT_FRAMES: 25
-    USE_REID: False
+    USE_REID: True
     ADD_DEBUG: True
 
 SOLVER:

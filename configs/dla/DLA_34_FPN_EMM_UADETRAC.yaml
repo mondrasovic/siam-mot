@@ -55,8 +55,10 @@ MODEL:
     NUM_CLASSES: 2  # Change it back to 10 classes when using "person- vehicle".
   
   TRACK_HEAD:
-    MAX_DORMANT_FRAMES: 25
-
+    MAX_DORMANT_FRAMES: 2
+    USE_REID: True
+    ADD_DEBUG: True
+  
 SOLVER:
   BASE_LR: 0.002
   WEIGHT_DECAY: 0.0001
