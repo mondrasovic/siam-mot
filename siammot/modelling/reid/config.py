@@ -21,7 +21,8 @@ _C.MODEL.DEVICE = "cuda"
 _C.MODEL.NAME = 'resnet50'
 _C.MODEL.LAST_STRIDE = 1
 _C.MODEL.LABEL_SMOOTH = False
-_C.MODEL.PRETRAIN_PATH = ''
+_C.MODEL.PRETRAINED = True
+
 # -----------------------------------------------------------------------------
 # INPUT
 # -----------------------------------------------------------------------------
@@ -55,8 +56,6 @@ _C.DATASETS.TRAIN_PATH = 'bounding_box_train'
 _C.DATASETS.QUERY_PATH = 'query'
 # PATH to gallery set
 _C.DATASETS.GALLERY_PATH = 'bounding_box_test'
-# Number of classes with which the model is trained
-_C.DATASETS.NUM_CLASSES = -1
 
 # -----------------------------------------------------------------------------
 # DataLoader
