@@ -19,10 +19,11 @@ def boxlists_to_entities(
     
     # default class is person only
     if class_table is None:
-        class_table = [
-            'person', 'bicycle', 'car', 'motorcycle',
-            'airplane', 'bus', 'train', 'truck', 'boat'
-        ]
+        # class_table = [
+        #     'person', 'bicycle', 'car', 'motorcycle',
+        #     'airplane', 'bus', 'train', 'truck', 'boat'
+        # ]
+        class_table = ["vehicle"]
         # TODO Make class table parametric.
         # class_table = ['person']
     
@@ -53,9 +54,9 @@ def convert_given_detections_to_boxlist(
     entities: List[AnnoEntity], video_width, video_height,
     class_table=None
 ):
-    # default class is person only
     if class_table is None:
-        class_table = ["person"]
+        # class_table = ["person"]
+        class_table = ["vehicle"]
     
     boxes = [_entity.bbox for _entity in entities]
     boxes = torch.as_tensor(boxes).reshape(-1, 4)
