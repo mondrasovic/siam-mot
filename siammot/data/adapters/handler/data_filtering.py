@@ -190,6 +190,9 @@ class UADETRACFilter(BaseFilter):
             self.ignored_regions[sample_name] = boxes
     
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
+        if entity.id < 0:
+            return True
+        
         if not self.is_train:
             ignored_boxes = self.ignored_regions[entity.blob['sample_name']]
             if len(ignored_boxes) == 0:
@@ -197,20 +200,20 @@ class UADETRACFilter(BaseFilter):
             
             box = self.xywh_boxes_to_xyxy_np_array(entity.bbox)
             area_ratios = self.intersection_over_area(box, ignored_boxes)
-            if np.any(area_ratios > self.ignored_region_overlap_thresh):
+            if np.any(area_ratios >= self.ignored_region_overlap_thresh):
                 return True
-            
-            if ignored_gt_entities is not None:
-                for entity_ in ignored_gt_entities:
-                    iou = bbs_iou(entity, entity_)
-                    if iou >= self.iou_ignored_entity_thresh:
-                        return True
+
+            # if ignored_gt_entities is not None:
+            #     for entity_ in ignored_gt_entities:
+            #         iou = bbs_iou(entity, entity_)
+            #         if iou >= self.iou_ignored_entity_thresh:
+            #             return True
 
         return False
     
     @staticmethod
     def xywh_boxes_to_xyxy_np_array(boxes):
-        boxes = np.atleast_2d(np.asarray(boxes))
+        boxes = np.atleast_2d(np.asfarray(boxes))
         boxes[:, 2:] += boxes[:, :2]
 
         return boxes
