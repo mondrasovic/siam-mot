@@ -61,12 +61,7 @@ def draw_box(
 ) -> None:
     pt1, pt2 = tuple(box[:2]), tuple(box[2:])
     cv.rectangle(
-        img,
-        pt1,
-        pt2,
-        color=color,
-        thickness=thickness,
-        lineType=cv.LINE_AA
+        img, pt1, pt2, color=color, thickness=thickness, lineType=cv.LINE_AA
     )
 
 
@@ -112,7 +107,7 @@ class ReIdManager:
     ) -> torch.Tensor:
         assert (not frame_idxs_1) or (len(boxes_1) == len(frame_idxs_1))
         assert (not frame_idxs_2) or (len(boxes_2) == len(frame_idxs_2))
-        assert boxes_1.mode == 'xyxy' and boxes_2.mode == 'xyxy'
+        assert (boxes_1.mode == 'xyxy') and (boxes_2.mode == 'xyxy')
 
         if (len(boxes_1) == 0) or (len(boxes_2) == 0):
             return torch.empty((0, 0))
