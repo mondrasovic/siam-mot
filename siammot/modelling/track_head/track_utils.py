@@ -220,7 +220,7 @@ class TrackPool(object):
                 features = template_features
             search_region = sr[idx: idx + 1]
             box = template_boxes[idx: idx + 1]
-            track_id = box.get_field("ids").item()
+            track_id = box.get_field('ids').item()
             self._cache[track_id] = (features, search_region, box)
     
     def resume_track(self, track_id: int) -> None:

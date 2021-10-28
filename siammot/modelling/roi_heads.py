@@ -58,7 +58,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         losses.update(loss_box)
         
         if self.cfg.MODEL.TRACK_ON:
-            y, tracks, loss_track = self.track(
+            _, tracks, loss_track = self.track(
                 features, proposals, targets, track_memory
             )
             losses.update(loss_track)
@@ -66,6 +66,8 @@ class CombinedROIHeads(torch.nn.ModuleDict):
             # solver is only needed during inference
             if not self.training:
                 if tracks is not None:
+                    # Refine bounding boxes (tracks) using the RPN head while
+                    # exploiting already extracted features.
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
                 
@@ -73,7 +75,8 @@ class CombinedROIHeads(torch.nn.ModuleDict):
 
                 # self.reid_man.preview_current_frame()
                 
-                # get the current state for tracking
+                # Get the current state for tracking.
+                # Extract fresh feature ROIs for ongoing detections.
                 x = self.track.get_track_memory(features, detections)
         
         return x, detections, losses

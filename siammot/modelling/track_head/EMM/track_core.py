@@ -178,7 +178,7 @@ def get_scale_penalty(tlbr: torch.Tensor, boxes: BoxList):
 
 
 def get_cosine_window_penalty(tlbr: torch.Tensor):
-    num_boxes, _, num_elements = tlbr.shape
+    _, _, num_elements = tlbr.shape
     h_w = int(np.sqrt(num_elements))
     hanning = torch.hann_window(h_w, dtype=torch.float, device=tlbr.device)
     window = torch.ger(hanning, hanning)

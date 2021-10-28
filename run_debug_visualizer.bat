@@ -2,7 +2,7 @@
 
 setlocal EnableDelayedExpansion
 
-set "visualizer_script=tools/solver_debug_visualizer.py"
+set "visualizer_script=tools\solver_debug_visualizer.py"
 set "data_subset=Test"
 set "dataset_dir_path=E:\datasets\UA-DETRAC_GluonCV\raw_data\Insight-MVT_Annotation_%data_subset%"
 set "out_dir_path=E:\solver_debug_visualization"

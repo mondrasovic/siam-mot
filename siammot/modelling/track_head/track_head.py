@@ -1,3 +1,5 @@
+import copy
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -97,7 +99,6 @@ class TrackHead(torch.nn.Module):
         # no need for feature extraction of search region if
         # the tracker is tracktor, or no trackable instances
         if len(active_tracks) == 0:
-            import copy
             template_features = torch.tensor([], device=features[0].device)
             sr = copy.deepcopy(active_tracks)
             sr.size = [active_tracks.size[0] + self.track_utils.pad_pixels * 2,
