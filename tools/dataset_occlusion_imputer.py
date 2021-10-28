@@ -10,6 +10,8 @@ import cv2 as cv
 import numpy as np
 import tqdm
 
+from shapely import geometry
+
 
 PointT = Tuple[int, int]
 PolygonT = Sequence[PointT]
@@ -188,7 +190,7 @@ def create_annotations(
     dataset_root_path: str,
     sample_names: Iterable[str],
     anno_man: AnnotationsManager,
-    update: bool,
+    update: bool = False,
     verbose: bool = False
 ) -> None:
     annotator = PolygonAnnotator()
@@ -236,11 +238,28 @@ def draw_polygon_anno(img, polygon):
     draw_filled_polygon(img, np.asarray(polygon), color)
 
 
+def build_entities_occl_overlap_filter(polygon, overlap_thresh=0.5):
+    polygon_shape = geometry.Polygon(polygon)
+
+    def _filter_entity(entity):
+        x, y, w, h = entity['bb']
+        box = geometry.box(x, y, x + w, y + h)
+        box_area = w * h
+        isect_area = polygon_shape.intersection(box).area
+        overlap_ratio = isect_area / box_area
+
+        return overlap_ratio < overlap_thresh
+    
+    return _filter_entity
+
+
 def generate_modified_dataset(
     input_root_path: str,
     output_root_path: str,
     sample_names: Iterable[str],
     anno_man: AnnotationsManager,
+    *,
+    overlap_thresh: float = 0.5,
     verbose: bool = False
 ) -> None:
     if verbose:
@@ -257,6 +276,7 @@ def generate_modified_dataset(
 
     test_sample_names = set(src_splits_data['test'])
 
+    anno_samples_data = anno_data['samples']
     dst_splits_data = {'train': [], 'test': []}
 
     src_data_dir = src_root_dir / 'raw_data'
@@ -268,7 +288,7 @@ def generate_modified_dataset(
    
     for sample_name, polygon in samples_iter:
         if verbose:
-            print(f"\nprocessing sample: {sample_name}")
+            print(f"processing sample: {sample_name}")
         
         subset_name = 'test' if sample_name in test_sample_names else 'train'
 
@@ -289,6 +309,13 @@ def generate_modified_dataset(
             dst_img_file = dst_root_dir / img_rel_path
             dst_img_file.parent.mkdir(parents=True, exist_ok=True)
             cv.imwrite(str(dst_img_file), img)
+        
+        entities_filter = build_entities_occl_overlap_filter(
+            polygon, overlap_thresh
+        )
+        anno_samples_data[sample_name]['entities'] = list(
+            filter(entities_filter, anno_samples_data[sample_name]['entities'])
+        )
 
     dst_anno_dir = dst_root_dir / 'annotation'
     dst_anno_dir.mkdir(parents=True, exist_ok=True)
@@ -341,13 +368,15 @@ def main(
     if annotate:
         with AnnotationsManager(anno_file_path) as anno_man:
             create_annotations(
-                input_dir, sample_names, anno_man, update, verbose
+                input_dir, sample_names, anno_man, update=update,
+                verbose=verbose
             )
     
     if output_dir:
         with AnnotationsManager(anno_file_path) as anno_man:
             generate_modified_dataset(
-                input_dir, output_dir, sample_names, anno_man, verbose
+                input_dir, output_dir, sample_names, anno_man,
+                overlap_thresh=thresh, verbose=verbose
             )
 
     return 0

@@ -52,7 +52,7 @@ MODEL:
     POOLER_RESOLUTION: 7
     POOLER_SCALES: (0.25, 0.125, 0.0625, 0.03125)
     POOLER_SAMPLING_RATIO: 2
-    NUM_CLASSES: 2  # Change it back to 10 classes when using "person- vehicle".
+    NUM_CLASSES: 2  # Change it back to 10 classes when using "person-vehicle".
   
   TRACK_HEAD:
     MAX_DORMANT_FRAMES: 25
