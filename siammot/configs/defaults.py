@@ -62,6 +62,7 @@ cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES = 25
 # ReID related configurations
 cfg.MODEL.TRACK_HEAD.USE_REID = False
 cfg.MODEL.TRACK_HEAD.ADD_DEBUG = False
+cfg.MODEL.TRACK_HEAD.FREEZE_DORMANT = False
 cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH = 0.4  # threshold for <-1, 1> interval
 
 # track proposal sampling

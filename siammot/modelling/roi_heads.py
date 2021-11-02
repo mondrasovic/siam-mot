@@ -1,3 +1,4 @@
+from torch._C import device
 from siammot.modelling import reid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -31,6 +32,9 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()
 
+        # TODO Some time in the future, remove this ugly solution.
+        self.freeze_dormant: bool = cfg.MODEL.TRACK_HEAD.FREEZE_DORMANT
+
     def forward(
         self,
         features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
@@ -58,6 +62,11 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         losses.update(loss_box)
         
         if self.cfg.MODEL.TRACK_ON:
+            if self.freeze_dormant:
+                template_boxes = self.extract_dormant_template_boxes(
+                    track_memory
+                )
+
             _, tracks, loss_track = self.track(
                 features, proposals, targets, track_memory
             )
@@ -71,9 +80,12 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
                 
-                detections = self.solver(detections)
+                if self.freeze_dormant:
+                    self.replace_dormant_template_boxes(
+                        detections, template_boxes
+                    )
 
-                # self.reid_man.preview_current_frame()
+                detections = self.solver(detections)
                 
                 # Get the current state for tracking.
                 # Extract fresh feature ROIs for ongoing detections.
@@ -81,20 +93,36 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         
         return x, detections, losses
     
-    def split_track_memory_by_dormant(self, track_memory):
-        dormant_tracks_mask = []
-        non_dormant_tracks_mask = ~dormant_tracks_mask
-
-        template_features, (sr,), (template_boxes,) = track_memory
+    def extract_dormant_template_boxes(self, track_memory):
+        dormant_template_boxes = {}        
+        if not track_memory:
+            return dormant_template_boxes
         
-        sr_dormant = sr[dormant_tracks_mask]
-        sr_non_dormant = sr[non_dormant_tracks_mask]
+        _, _, (template_boxes,) = track_memory        
+        if len(template_boxes) > 0:
+            dormant_ids = self.solver.track_pool.get_dormant_ids()
+            ids = template_boxes.get_field('ids')
+            boxes = template_boxes.bbox
+            
+            for id_, box in zip(ids, boxes):
+                id_ = id_.item()
+                if id_ in dormant_ids:
+                    dormant_template_boxes[id_] = box.clone()
 
-        template_boxes_dormant = template_boxes[dormant_tracks_mask]
-        template_boxes_non_dormant = template_boxes[non_dormant_tracks_mask]
+        return dormant_template_boxes
 
-        
+    def replace_dormant_template_boxes(self, detections, template_boxes):
+        detections, = detections
+        dormant_ids = self.solver.track_pool.get_dormant_ids()
+        ids = detections.get_field('ids').tolist()
+        boxes = detections.bbox
 
+        for i, id_ in enumerate(ids):
+            if id_ in dormant_ids:
+                prev_template_box = template_boxes.get(id_)
+                if prev_template_box is not None:
+                    boxes[i] = prev_template_box
+    
     def reset_roi_status(self) -> None:
         """
         Reset the status of ROI Heads
