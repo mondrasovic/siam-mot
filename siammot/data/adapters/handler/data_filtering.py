@@ -226,6 +226,8 @@ class UADETRACFilter(BaseFilter):
     ) -> np.ndarray:
         assert (box.ndim == 2) and (box.shape[0] == 1)
         assert (boxes.ndim == 2) and (boxes.shape[1] == 4)
+        assert box[:, :2] <= box[:, 2:], "box must be in 'xyxy' format"
+        assert boxes[:, :2] <= boxes[:, 2:], "boxes must be in 'xyxy' format"
 
         coords_tl = np.maximum(boxes[:, :2], box[..., :2])
         coords_br = np.minimum(boxes[:, 2:], box[..., 2:])

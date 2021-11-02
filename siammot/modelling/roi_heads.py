@@ -81,6 +81,20 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         
         return x, detections, losses
     
+    def split_track_memory_by_dormant(self, track_memory):
+        dormant_tracks_mask = []
+        non_dormant_tracks_mask = ~dormant_tracks_mask
+
+        template_features, (sr,), (template_boxes,) = track_memory
+        
+        sr_dormant = sr[dormant_tracks_mask]
+        sr_non_dormant = sr[non_dormant_tracks_mask]
+
+        template_boxes_dormant = template_boxes[dormant_tracks_mask]
+        template_boxes_non_dormant = template_boxes[non_dormant_tracks_mask]
+
+        
+
     def reset_roi_status(self) -> None:
         """
         Reset the status of ROI Heads
