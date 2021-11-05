@@ -28,6 +28,7 @@ def main(results_csv_file_path):
         }, inplace=True
     )
     pd.io.clipboards.to_clipboard(df, excel=True)
+    
     return 0
 
 

@@ -19,7 +19,6 @@ from siammot.configs.defaults import cfg
 from siammot.data.adapters.augmentation.build_augmentation import \
     build_siam_augmentation
 from siammot.modelling.rcnn import build_siammot, SiamMOT
-from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager, ReIdManager
 
 
 class DemoInference:
@@ -54,16 +53,16 @@ class DemoInference:
         file_path = Path(os.path.abspath(__file__))
         workplace_dir = str(file_path.parent.absolute())
         
-        # create demo model folder
+        # Create demo model folder.
         model_dir = os.path.join(workplace_dir, 'models')
         os.makedirs(model_dir, exist_ok=True)
         
-        # check the artifacts exist or not
+        # Check if the artifacts exist or not.
         artifact_path = os.path.join(
             model_dir, '{}.zip'.format(self.track_class)
         )
-        if not os.path.exists(artifact_path):
-            
+
+        if not os.path.exists(artifact_path):    
             model_url = 'https://aws-cv-sci-motion-public.s3-us-west-2' \
                         '.amazonaws.com/SiamMOT/demo_models/{}.zip' \
                 .format(self.track_class)
@@ -79,10 +78,11 @@ class DemoInference:
             model_name = 'DLA34_emm_coco_crowdhuman.pth'
         else:
             model_name = 'DLA34_emm_coco_voc.pth'
+        
         model_path = os.path.join(model_dir, self.track_class, model_name)
         
         return cfg_file, model_path
-    
+     
     def _preprocess(self, frame: ndarray) -> Tensor:
         
         # frame is RGB-Channel

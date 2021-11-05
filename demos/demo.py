@@ -14,18 +14,19 @@ parser.add_argument(
     required=True
 )
 parser.add_argument(
-    '--track-class', type=str, choices=('person', 'person_vehicle'),
-    default='person',
-    help='Tracking person or person/vehicle jointly'
+    '--track-class', type=str,
+    choices=('person', 'person_vehicle', 'vehicle'),
+    default='vehicle',
+    help="tracking person, vehicle or person/vehicle jointly"
 )
 parser.add_argument(
-    "--dump-video", type=bool, default=False,
-    help="Dump the videos as results"
+    '--dump-video', type=bool, default=False,
+    help="dump the videos as results"
 )
-parser.add_argument("--vis-resolution", type=int, default=1080)
+parser.add_argument('--vis-resolution', type=int, default=1080)
 parser.add_argument(
-    "--output-path", type=str, default=None,
-    help='The path of dumped videos'
+    '--output-path', type=str, default=None,
+    help="the path of dumped videos"
 )
 
 if __name__ == '__main__':

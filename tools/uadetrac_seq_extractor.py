@@ -117,7 +117,7 @@ def build_img_file_in_range_predicate(frame_no_min, frame_no_max):
 
 
 @click.command()
-@click.argument('src_dir_path', type=click.Path())
+@click.argument('src_dir_path', type=click.Path(exists=True))
 @click.argument('dst_dir_path', type=click.Path())
 @click.argument('sample', type=str)
 @click.option(

@@ -56,8 +56,9 @@ MODEL:
   
   TRACK_HEAD:
     MAX_DORMANT_FRAMES: 25
-    USE_REID: False
+    USE_REID: True
     ADD_DEBUG: True
+    FREEZE_DORMANT: True
   
 SOLVER:
   BASE_LR: 0.002
@@ -69,7 +70,7 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: "E:/datasets"
+  ROOT_DIR: "E:/small_datasets"
   TRAIN: ("UA_DETRAC",)
 
 DATALOADER:

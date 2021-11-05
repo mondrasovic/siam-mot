@@ -1,8 +1,8 @@
 @echo off
 
-set first_experiment_name=test_output
-set second_experiment_name=test_output_reid_no_dorm_update
-set sample_num=40775
+set first_experiment_name=test_output_orig
+set second_experiment_name=test_output_reid_freeze_dorm
+set sample_num=40793
 set subset_name=Test
 
 set first_file=./%first_experiment_name%/DLA-34-FPN_box_EMM_UA_DETRAC/MVI_%sample_num%.json

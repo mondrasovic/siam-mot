@@ -285,7 +285,7 @@ class TrackSolverReid(TrackSolver):
             curr_id = reid_ids[idx].item()
             if curr_id in active_ids:
                 self.track_pool.suspend_track(curr_id)
-        reid_ids[inactive_idxs] = -1  # TODO Dormant tracks are included here.
+        reid_ids[inactive_idxs] = -1 
         
         self.track_pool.expire_tracks()
         self.track_pool.increment_frame()
