@@ -1,46 +1,46 @@
+from os import startfile
 import sys
 import tqdm
 import json
-import click
 import shutil
 import pathlib
 import functools
-import queue
-import threading
+import multiprocessing
 
+import click
 import cv2 as cv
 import numpy as np
 
 
-def iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path):
+def iter_img_files_and_stages(imgs_dir_path, debug_dump_file_path):
     imgs_dir = pathlib.Path(imgs_dir_path)
     
     with open(debug_dump_file_path, 'rt') as debug_file:
         content = json.load(debug_file)
         frames_data = content['frames']
     
-    def _build_entities_iter(stage_data):
+    def _read_entities(stage_data):
         status_vals = ('inactive', 'dormant', 'active')
-        
-        def _sort_by_status_key(entity):
-            return status_vals.index(entity['status'])
-        
-        yield from iter(sorted(stage_data['entities'], key=_sort_by_status_key))
     
-    def _build_stages_iter(frame_data):
+        return sorted(
+            stage_data['entities'],
+            key=lambda e: status_vals.index(e['status'])
+        )
+    
+    def _read_stages(frame_data):
         stages_order = ('input', 'after NMS', 'after ReID', 'output')
         stages = frame_data['stages']
 
         for stage_name in stages_order:
             stage_data = stages.get(stage_name)
             if stage_data is not None:
-                entities_iter = _build_entities_iter(stage_data)
-                yield stage_name, entities_iter
+                entities = _read_entities(stage_data)
+                yield stage_name, entities
     
     for file, frame_data in zip(imgs_dir.iterdir(), frames_data):
-        img = cv.imread(str(file), cv.IMREAD_COLOR)
-        stages_iter = _build_stages_iter(frame_data)
-        yield img, stages_iter
+        img_file_path = str(file)
+        stages_data = tuple(_read_stages(frame_data))
+        yield img_file_path, stages_data
 
 
 def labeled_rectangle(
@@ -106,119 +106,50 @@ def render_entity(img, stage_name, entity):
     )
 
 
-class ClosableQueue(queue.Queue):
-    _SENTINEL = object()
+def process_frame(
+    frame_idx,
+    img_file_path,
+    stages_data,
+    output_dir,
+    stage_names
+):
+    img_orig = cv.imread(img_file_path, cv.IMREAD_COLOR)
 
-    def close(self):
-        self.put(self._SENTINEL)
+    for j, (stage_name, entities_data) in enumerate(stages_data, start=1):
+        if stage_name in stage_names:
+            curr_img = img_orig.copy()
 
-    def __iter__(self):
-        while True:
-            item = self.get()
-            try:
-                if item is self._SENTINEL:
-                    return
-                yield item
-            finally:
-                self.task_done()
-
-
-class StageProcessorWorker(threading.Thread):
-    def __init__(
-        self,
-        output_dir,
-        w_scale,
-        h_scale,
-        ignored_stages,
-        img_stages_iters_queue,
-        imgs_processed_queue
-    ):
-        super().__init__()
-
-        self.output_dir = output_dir
-        self.w_scale = w_scale
-        self.h_scale = h_scale
-        self.ignored_stages = set(ignored_stages)
-        self.img_stages_iters_queue = img_stages_iters_queue
-        self.imgs_processed_queue = imgs_processed_queue
-    
-    def run(self):
-        should_resize = not np.allclose(
-            np.asarray((self.w_scale, self.h_scale)), 1
-        )
-
-        for frame_idx, (img, stages_iter) in self.img_stages_iters_queue:
-            for j, (stage_name, entities_iter) in enumerate(
-                stages_iter, start=1
-            ):
-                if stage_name in self.ignored_stages:
-                    continue
-
-                curr_img = img.copy()
-                for entity in entities_iter:
-                    render_entity(curr_img, stage_name, entity)
-                
-                if should_resize:
-                    curr_img = cv.resize(
-                        curr_img, None, fx=self.w_scale, fy=self.h_scale
-                    )
-
-                img_file_name = f'frame_{frame_idx:04d}_{j:02d}_{stage_name}.jpg'
-                img_file_path = str(self.output_dir / img_file_name)
-                self.imgs_processed_queue.put((img_file_path, curr_img))
-        self.imgs_processed_queue.close()
+            for entity in entities_data:
+                render_entity(curr_img, stage_name, entity)
+            
+            img_file_name = f'frame_{frame_idx:04d}_{j:02d}_{stage_name}.jpg'
+            img_file_path = str(output_dir / img_file_name)
+            cv.imwrite(img_file_path, curr_img)
 
 
 @click.command()
-@click.argument('imgs_dir_path', type=click.Path())
+@click.argument('imgs_dir_path', type=click.Path(exists=True))
 @click.argument('output_dir_path', type=click.Path())
-@click.argument('debug_dump_file_path', type=click.Path())
-@click.option(
-    '--w-scale', type=float, default=1.0, show_default=True,
-    help="Width scale factor."
-)
-@click.option(
-    '--h-scale', type=float, default=1.0, show_default=True,
-    help="Height scale factor."  
-)
-@click.option(
-    '-i', '--ignore-stage', multiple=True, help="List of stages to ignore."
-)
-def main(
-    imgs_dir_path,
-    output_dir_path,
-    debug_dump_file_path,
-    w_scale,
-    h_scale,
-    ignore_stage
-):
+@click.argument('debug_dump_file_path', type=click.Path(exists=True))
+@click.argument('stages', nargs=-1)
+def main(imgs_dir_path, output_dir_path, debug_dump_file_path, stages):
     output_dir = pathlib.Path(output_dir_path)
     if output_dir.exists():
         shutil.rmtree(str(output_dir))
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    img_stages_iters_queue = ClosableQueue()
-    imgs_processed_queue = ClosableQueue()
-    
-    stages_processor_thread = StageProcessorWorker(
-        output_dir, w_scale, h_scale, ignore_stage, img_stages_iters_queue,
-        imgs_processed_queue
-    )
-    stages_processor_thread.start()
 
-    data_iter = iter_imgs_and_stages(imgs_dir_path, debug_dump_file_path)
-    print("Reading frames...")
-    for item in tqdm.tqdm(enumerate(data_iter, start=1)):
-        img_stages_iters_queue.put(item)
-    img_stages_iters_queue.close()
-
-    print("Saving processed frames...")
-    for img_file_path, img in tqdm.tqdm(imgs_processed_queue):
-        cv.imwrite(img_file_path, img)
-    
-    img_stages_iters_queue.join()
-    imgs_processed_queue.join()
-    stages_processor_thread.join()
+    n_workers = min(multiprocessing.cpu_count(), 4)
+    # TODO Add tqdm and consider optimizing for chunksize.
+    with multiprocessing.Pool(n_workers) as pool:
+        data_iter = iter_img_files_and_stages(
+            imgs_dir_path, debug_dump_file_path
+        )
+        stage_names = set(stages)
+        args_iter = (
+            (i, img_file_path, stages_data, output_dir, stage_names)
+            for i, (img_file_path, stages_data) in enumerate(data_iter, start=1)
+        )
+        pool.starmap(process_frame, args_iter, chunksize=16)
     
     return 0
 

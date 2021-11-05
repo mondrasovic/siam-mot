@@ -70,7 +70,8 @@ def main(
 
                 args = [
                     'python', script_path, str(curr_imgs_dir),
-                    str(curr_out_dir), str(file)
+                    str(curr_out_dir), str(file), 'input', 'after NMS',
+                    'after ReID', 'output'
                 ]
                 print()
                 subprocess.run(args, shell=True)
