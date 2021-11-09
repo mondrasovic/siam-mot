@@ -112,8 +112,8 @@ class ReIdManager:
         if (len(boxes_1) == 0) or (len(boxes_2) == 0):
             return torch.empty((0, 0))
         
-        emb_1 = self._calc_embeddings(frame_idxs_1, boxes_1)
-        emb_2 = self._calc_embeddings(frame_idxs_2, boxes_2)
+        emb_1 = self.calc_embeddings(frame_idxs_1, boxes_1)
+        emb_2 = self.calc_embeddings(frame_idxs_2, boxes_2)
 
         sim_matrix = cos_sim_matrix(emb_1, emb_2)
 
@@ -123,7 +123,7 @@ class ReIdManager:
         self._frames.clear()
         self._curr_frame_idx = 0
     
-    def _calc_embeddings(
+    def calc_embeddings(
         self,
         frame_idxs: Sequence[int],
         boxes: BoxList
@@ -131,7 +131,7 @@ class ReIdManager:
         boxes_int = boxes.bbox.round().int()
 
         emb = [
-            self._calc_embedding(frame_idx, tuple(box_int.tolist()))
+            self.calc_embedding(frame_idx, tuple(box_int.tolist()))
             for frame_idx, box_int in zip(frame_idxs, boxes_int)
         ]
         emb = torch.cat(emb, dim=0)
@@ -139,7 +139,7 @@ class ReIdManager:
         return emb
 
     @functools.lru_cache(maxsize=1024)
-    def _calc_embedding(
+    def calc_embedding(
         self,
         frame_idx: int,
         box_int: Tuple[int]

@@ -6,7 +6,7 @@ import torch
 import numpy as np
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
-from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
+from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms, boxlist_iou
 from maskrcnn_benchmark.layers import nms as _box_nms
 from yacs.config import CfgNode
 from scipy.optimize import linear_sum_assignment
@@ -17,6 +17,68 @@ from siammot.modelling.reid.reid_man import (
 )
 from siammot.modelling.track_head.track_solver_debug import\
     build_or_get_existing_track_solver_debugger
+
+
+def cos_sim_matrix(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    eps: float = 1e-8
+) -> torch.Tensor:
+    """Computes a 2D cosine similarity matrix between two sets of vectors.
+
+    Args:
+        a (torch.Tensor): First list of vectors of shape (N, D).
+        b (torch.Tensor): Second list of vectors of shape (M, D).
+        eps (float, optional): Small value to avoid division by zero.
+                               Defaults to 1e-8.
+
+    Returns:
+        torch.Tensor: A 2D cosine similarity matrix of shape (N, M).
+        The cell at i-th row and j-th column represents the cosine similarity
+        between the a[i] and b[j] D-dimensional vectors.
+    """
+    a_norm = a.norm(dim=1)[..., None]
+    b_norm = b.norm(dim=1)[..., None]
+
+    a_ = a / torch.clamp(a_norm, min=eps)
+    b_ = b / torch.clamp(b_norm, min=eps)
+
+    sim_matrix = torch.mm(a_, b_.T)
+
+    return sim_matrix
+
+def boxlist_feature_nms(
+    boxes: BoxList,
+    embs: torch.Tensor,
+    iou_thresh_1: float = 0.1,
+    iou_thresh_2: float = 0.9,
+    cos_sim_thresh: float = 0.4,
+    score_field: str = 'scores'
+) -> BoxList:
+    assert len(boxes) == len(embs)
+    assert embs.ndim == 2
+    assert 0 < iou_thresh_1 < iou_thresh_2 < 1
+
+    scores = boxes.get_field(score_field)
+    boxes = boxes.convert('xyxy')
+    iou_scores = boxlist_iou(boxes, boxes)
+    cos_sim_scores = cos_sim_matrix(embs, embs)
+
+    kept_indices = []
+
+    for i in torch.argsort(scores, descending=True).tolist():
+        for j in kept_indices:
+            iou = iou_scores[i, j]
+            if iou > iou_thresh_2:
+                break
+            elif iou > iou_thresh_1:
+                cos_sim = cos_sim_scores[i, j]
+                if cos_sim > cos_sim_thresh:
+                    break
+        else:
+            kept_indices.append(i)
+    
+    return boxes[kept_indices]
 
 
 def boxlist_nms_idxs_only(
@@ -345,6 +407,130 @@ class TrackSolverReid(TrackSolver):
         return cos_sim_matrix, row_idxs, col_idxs
     
 
+class TrackSolverReid2(TrackSolver):
+    def __init__(
+        self,
+        track_pool: TrackPool,
+        reid_man: ReIdManager,
+        track_thresh: float = 0.3,
+        start_track_thresh: float = 0.5,
+        resume_track_thresh: float = 0.4,
+        nms_thresh: float = 0.5,
+        sim_thresh: float = 0.4,
+        add_debug: bool = False
+    ) -> None:
+        super().__init__(
+            track_pool, track_thresh, start_track_thresh, resume_track_thresh,
+            nms_thresh, add_debug
+        )
+        
+        self.reid_man: ReIdManager = reid_man
+        self.sim_thresh: float = sim_thresh
+
+    def forward(self, detections: List[BoxList]):
+        """
+        The solver is to merge predictions from the detection branch as well as
+        from the track branch. The goal is to assign a unique track ID to
+        bounding boxes that are deemed tracked.
+
+        :param detection: it includes three set of distinctive prediction:
+            prediction propagated from active tracks (2 >= score > 1, id >= 0),
+            prediction propagated from dormant tracks (2 >= score > 1, id >= 0),
+            prediction from detection (1 > score > 0, id = -1).
+        :return:
+        """
+        assert len(detections) == 1
+        detections = detections[0]
+        
+        if len(detections) == 0:
+            return [detections]
+        
+        iou_thresh_1 = 0.4
+        iou_thresh_2 = 0.8
+        cos_sim_thresh = 0.6
+
+        self._add_debug('input', detections)
+
+        track_pool = self.track_pool
+        
+        all_ids = detections.get_field('ids')
+        all_scores = detections.get_field('scores')
+        active_ids = track_pool.get_active_ids()
+        dormant_ids = track_pool.get_dormant_ids()
+        device = all_ids.device
+        
+        active_mask = torch.tensor(
+            [int(x) in active_ids for x in all_ids], device=device
+        )
+        
+        # differentiate active tracks from dormant tracks with scores
+        # active tracks, (3 >= score > 2, id >= 0),
+        # dormant tracks, (2 >= score > 1, id >= 0),
+        # By doing this, dormant tracks will be merged to active tracks
+        # during nms if they highly overlap
+        all_scores[active_mask] += 1.
+        
+        current_frame_idx = self.track_pool.frame_idx
+        frame_idxs = [current_frame_idx] * len(detections)
+        detections_xyxy = detections.convert('xyxy')
+        embs = self.reid_man.calc_embeddings(frame_idxs, detections_xyxy)
+        nms_detection = boxlist_feature_nms(
+            detections_xyxy, embs, iou_thresh_1, iou_thresh_2, cos_sim_thresh
+        )
+        
+        _ids = nms_detection.get_field('ids')
+        _scores = nms_detection.get_field('scores')
+        
+        _scores[_scores >= 2.] = _scores[_scores >= 2.] - 2.
+        _scores[_scores >= 1.] = _scores[_scores >= 1.] - 1.
+
+        self._add_debug('after NMS', nms_detection)
+
+        combined_detection = nms_detection
+        _ids = combined_detection.get_field('ids')
+        _scores = combined_detection.get_field('scores')
+        
+        # start track ids
+        start_idxs = ((_ids < 0) & (_scores >= self.start_thresh)).nonzero()
+        
+        # inactive track ids
+        inactive_idxs = ((_ids >= 0) & (_scores < self.track_thresh))
+        nms_track_ids = set(_ids[_ids >= 0].tolist())
+        all_track_ids = set(all_ids[all_ids >= 0].tolist())
+        # active tracks that are removed by nms
+        nms_removed_ids = all_track_ids - nms_track_ids
+        inactive_ids = set(_ids[inactive_idxs].tolist()) | nms_removed_ids
+        
+        # resume dormant tracks, if needed
+        dormant_mask = torch.tensor(
+            [int(x) in dormant_ids for x in _ids], device=device
+        )
+        resume_ids = _ids[dormant_mask & (_scores >= self.resume_track_thresh)]
+        for _id in resume_ids.tolist():
+            track_pool.resume_track(_id)
+        
+        for _idx in start_idxs:
+            _ids[_idx] = track_pool.start_track()
+        
+        active_ids = track_pool.get_active_ids()
+        for _id in inactive_ids:
+            if _id in active_ids:
+                track_pool.suspend_track(_id)
+        
+        # make sure that the ids for inactive tracks in current frame are
+        # meaningless (< 0)
+        _ids[inactive_idxs] = -1
+        
+        self._add_debug('output', combined_detection)
+        self._debug_save_frame()
+
+        track_pool.expire_tracks()
+        track_pool.increment_frame()
+        
+        return [combined_detection]
+
+
+
 def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
     track_thresh = cfg.MODEL.TRACK_HEAD.TRACK_THRESH
     start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH
@@ -356,7 +542,7 @@ def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
         reid_man = build_or_get_existing_reid_manager(cfg)
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
 
-        track_solver = TrackSolverReid(
+        track_solver = TrackSolverReid2(
             track_pool, reid_man, track_thresh, start_track_thresh,
             resume_track_thresh, nms_thresh, cos_sim_thresh, use_debug
         )

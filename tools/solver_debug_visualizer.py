@@ -1,6 +1,4 @@
-from os import startfile
 import sys
-import tqdm
 import json
 import shutil
 import pathlib
@@ -59,8 +57,8 @@ def labeled_rectangle(
     img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
 
     font_face = cv.FONT_HERSHEY_COMPLEX_SMALL
-    font_scale = 1.5
-    font_thickness = 2
+    font_scale = 0.8
+    font_thickness = 1
 
     (text_width, text_height), baseline = cv.getTextSize(
         label, font_face, font_scale, font_thickness)
@@ -85,7 +83,7 @@ def labeled_rectangle(
 def render_entity(img, stage_name, entity):
     box = entity['box']
     start_pt, end_pt = tuple(box[:2]), tuple(box[2:])
-    label = f"{entity['id']}"
+    label = f"{entity['id']}:{entity['confidence']:.1%}"
     status = entity['status']
 
     if status == 'active':
@@ -139,7 +137,6 @@ def main(imgs_dir_path, output_dir_path, debug_dump_file_path, stages):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     n_workers = min(multiprocessing.cpu_count(), 4)
-    # TODO Add tqdm and consider optimizing for chunksize.
     with multiprocessing.Pool(n_workers) as pool:
         data_iter = iter_img_files_and_stages(
             imgs_dir_path, debug_dump_file_path
@@ -149,7 +146,7 @@ def main(imgs_dir_path, output_dir_path, debug_dump_file_path, stages):
             (i, img_file_path, stages_data, output_dir, stage_names)
             for i, (img_file_path, stages_data) in enumerate(data_iter, start=1)
         )
-        pool.starmap(process_frame, args_iter, chunksize=16)
+        pool.starmap(process_frame, args_iter, chunksize=1)
     
     return 0
 

@@ -37,7 +37,8 @@ def build_dataset_dir_path(datasets_path, subset):
     show_default=True, help="Model directory name."
 )
 @click.option(
-    '-p', '--pattern', default='track_solver_debug_*.json', show_default=True, help="Debug dump file pattern."
+    '-p', '--pattern', default='track_solver_debug_*.json', show_default=True,
+    help="Debug dump file pattern."
 )
 def main(
     test_dir_path,
