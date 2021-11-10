@@ -542,7 +542,7 @@ def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
         reid_man = build_or_get_existing_reid_manager(cfg)
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
 
-        track_solver = TrackSolverReid(
+        track_solver = TrackSolverReid2(
             track_pool, reid_man, track_thresh, start_track_thresh,
             resume_track_thresh, nms_thresh, cos_sim_thresh, use_debug
         )

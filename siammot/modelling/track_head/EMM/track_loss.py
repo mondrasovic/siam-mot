@@ -68,7 +68,6 @@ class EMMLossComputation(object):
         self.loss_weight = cfg.MODEL.TRACK_HEAD.EMM.TRACK_LOSS_WEIGHT
     
     def prepare_targets(self, points, src_bbox, gt_bbox):
-        
         cls_labels, reg_targets = self.compute_targets(
             points, src_bbox, gt_bbox
         )
