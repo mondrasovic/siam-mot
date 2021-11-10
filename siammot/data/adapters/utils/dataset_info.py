@@ -81,7 +81,7 @@ dataset_maps['crowdhuman_val_vbox'] = [
 ]
 
 dataset_maps['UA_DETRAC'] = [
-    'UA-DETRAC_GluonCV',
+    'UA-DETRAC_GluonCV_occ',
     'anno.json',
     'splits.json',
     'video'
