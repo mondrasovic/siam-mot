@@ -146,7 +146,7 @@ def main(imgs_dir_path, output_dir_path, debug_dump_file_path, stages):
             (i, img_file_path, stages_data, output_dir, stage_names)
             for i, (img_file_path, stages_data) in enumerate(data_iter, start=1)
         )
-        pool.starmap(process_frame, args_iter, chunksize=1)
+        pool.starmap(process_frame, args_iter, chunksize=2)
     
     return 0
 
