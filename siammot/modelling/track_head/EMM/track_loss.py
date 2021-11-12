@@ -30,6 +30,76 @@ def log_softmax(cls_logits):
     return cls_logits
 
 
+def features_to_emb(features: torch.Tensor) -> torch.Tensor:
+    """Computes embedding vectors from tracker template (exemplar) features.
+    For each feature tensor in a batch, it applies global average pooling along
+    the channel dimension. Afterwards, it L2-normalizes the vectors to project
+    them onto a hypersphere.
+
+    Args:
+        features (torch.Tensor): template features of shape [B, C, S, S]
+
+    Returns:
+        torch.Tensor: embedding vectors of shape [B, C]
+    """
+    assert features.ndim == 4
+    assert features.shape[-1] == features.shape[-2]
+    
+    size = features.shape[-1]
+    avg = F.avg_pool2d(features, kernel_size=size)   # [B, C, 1, 1]
+    avg  = avg.squeeze()  # [B, C]
+    norm = torch.linalg.norm(avg, dim=1)  # [B,]
+    emb = avg / norm[..., None]  # [B, C]
+    
+    return emb
+
+
+class BalancedMarginContrastiveLoss(nn.Module):
+    _ZERO = torch.tensor(0)
+
+    def __init__(self, alpha: float = 0.5, beta: float = 1.5) -> None:
+        super().__init__()
+        
+        self.alpha: float = alpha
+        self.beta: float = beta
+    
+    def forward(self, embs, ids):
+        assert len(embs) == len(ids)
+        assert (embs.ndim == 2) and (ids.ndim == 1)
+
+        idxs = torch.arange(0, len(embs))
+        idx_pairs = torch.combinations(idxs, 2)
+        emb_pairs = embs[idx_pairs]
+
+        pair_dist = torch.norm(emb_pairs[:, 0, :] - emb_pairs[:, 1, :], dim=1)
+
+        ids_first = ids[idx_pairs[:, 0]]
+        ids_second = ids[idx_pairs[:, 1]]
+        neg_pairs_mask = (ids_first != ids_second)
+
+        labels = torch.ones_like(pair_dist)
+        labels[neg_pairs_mask] = -1
+
+        n_neg = torch.sum(neg_pairs_mask).item()
+        n_pos = len(neg_pairs_mask) - n_neg
+
+        pos_weight = 1.0 / n_pos
+        neg_weight = 1.0 / n_neg
+
+        weights = torch.full_like(pair_dist, pos_weight)
+        weights[neg_pairs_mask] = neg_weight
+        weights /= weights.sum()
+
+        loss = torch.sum(
+            weights * 
+            torch.maximum(
+                self.alpha + labels * (pair_dist - self.beta), self._ZERO
+            )
+        )
+
+        return loss
+
+
 class IOULoss(nn.Module):
     def forward(self, pred, target, weight=None):
         pred_l = pred[:, 0]
@@ -63,6 +133,8 @@ class EMMLossComputation(object):
     def __init__(self, cfg):
         self.box_reg_loss_func = IOULoss()
         self.centerness_loss_func = nn.BCEWithLogitsLoss()
+        self.emb_loss_func = BalancedMarginContrastiveLoss()
+
         self.cfg = cfg
         self.pos_ratio = cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION
         self.loss_weight = cfg.MODEL.TRACK_HEAD.EMM.TRACK_LOSS_WEIGHT
@@ -132,11 +204,9 @@ class EMMLossComputation(object):
         return regression_outputs
     
     def __call__(
-        self, locations, box_cls, box_regression, centerness, src, targets
+        self, locations, box_cls, box_regression, centerness, src, targets,
+        template_features, ids
     ):
-        """
-        """
-        
         cls_labels, reg_targets = self.prepare_targets(locations, src, targets)
         
         box_regression = (box_regression.permute(0, 2, 3, 1).contiguous()).view(
@@ -168,9 +238,18 @@ class EMMLossComputation(object):
                 centerness_flatten,
                 centerness_targets
             )
+
+            valid_mask = (ids >= 0)
+            embs = features_to_emb(template_features[valid_mask])
+            emb_loss = self.emb_loss_func(embs, ids[valid_mask])
         else:
             reg_loss = 0. * box_regression_flatten.sum()
             centerness_loss = 0. * centerness_flatten.sum()
+            emb_loss = 0.
         
-        return self.loss_weight * cls_loss, self.loss_weight * reg_loss, \
-            self.loss_weight * centerness_loss
+        return (
+            self.loss_weight * cls_loss,
+            self.loss_weight * reg_loss,
+            self.loss_weight * centerness_loss,
+            self.loss_weight * emb_loss
+        )

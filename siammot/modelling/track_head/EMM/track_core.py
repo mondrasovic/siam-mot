@@ -62,15 +62,18 @@ class EMM(torch.nn.Module):
             )
             src_bboxes = cat([b.bbox for b in boxes], dim=0)
             gt_bboxes = cat([b.bbox for b in targets], dim=0)
-            cls_loss, reg_loss, centerness_loss = self.loss(
+            ids = cat([b.get_field('ids') for b in boxes])
+
+            cls_loss, reg_loss, centerness_loss, emb_loss = self.loss(
                 locations, cls_logits, reg_logits, center_logits, src_bboxes,
-                gt_bboxes
+                gt_bboxes, template_features, ids
             )
             
             loss = dict(
                 loss_tracker_class=cls_loss,
                 loss_tracker_motion=reg_loss,
-                loss_tracker_center=centerness_loss
+                loss_tracker_center=centerness_loss,
+                loss_tracker_emb=emb_loss,
             )
             
             return {}, {}, loss
