@@ -8,7 +8,7 @@ import tqdm
 
 def build_dataset_dir_path(datasets_path, subset):
     return (
-        pathlib.Path(datasets_path) / 'UA-DETRAC_GluonCV_occ' / 'raw_data' /
+        pathlib.Path(datasets_path) / 'UA-DETRAC_GluonCV' / 'raw_data' /
         f'Insight-MVT_Annotation_{subset}'
     )
 
