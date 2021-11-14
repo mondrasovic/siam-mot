@@ -85,6 +85,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                         detections, template_boxes
                     )
 
+                # TODO Exploit features through the parameter? Yeah....
                 detections = self.solver(detections)
                 
                 # Get the current state for tracking.
@@ -170,12 +171,13 @@ def build_roi_heads(cfg: CfgNode, in_channels: int) -> CombinedROIHeads:
         roi_heads.append(('box', build_roi_box_head(cfg, in_channels)))
     if cfg.MODEL.TRACK_ON:
         track_utils, track_pool = build_track_utils(cfg)
-        roi_heads.append(
-            ('track', build_track_head(cfg, track_utils, track_pool))
-        )
+        track_head = build_track_head(cfg, track_utils, track_pool)
+        roi_heads.append(('track', track_head))
         # solver is a non-learnable layer that would only be used during
         # inference
-        roi_heads.append(('solver', build_track_solver(cfg, track_pool)))
+        roi_heads.append(
+            ('solver', build_track_solver(cfg, track_pool, track_head))
+        )
     
     # combine individual heads in a single module
     if roi_heads:

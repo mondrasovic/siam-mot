@@ -113,6 +113,9 @@ class TrackHead(torch.nn.Module):
         
         return track_memory
     
+    def extract_template_features(self, features, detection):
+        return self.tracker.extract_template_features(features, detection)
+    
     def _update_memory_with_dormant_track(
         self,
         track_memory: Tuple[Tensor, List[BoxList], List[BoxList]]
@@ -162,7 +165,7 @@ def build_track_head(
     import siammot.modelling.track_head.EMM.track_core as track_core
     import siammot.modelling.track_head.EMM.target_sampler as target_sampler
     
-    track_core  # To avoid the code clean-up routines to delete the import.
+    track_core  # To avoid the code clean-up routines to delete these imports.
     target_sampler
     
     tracker = registry.SIAMESE_TRACKER[
@@ -173,4 +176,6 @@ def build_track_head(
         cfg.MODEL.TRACK_HEAD.MODEL
     ](cfg, track_utils)
     
-    return TrackHead(tracker, tracker_sampler, track_utils, track_pool)
+    track_head = TrackHead(tracker, tracker_sampler, track_utils, track_pool)
+
+    return track_head

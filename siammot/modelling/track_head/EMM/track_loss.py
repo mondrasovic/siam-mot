@@ -42,8 +42,8 @@ def features_to_emb(features: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: embedding vectors of shape [B, C]
     """
-    assert features.ndim == 4
-    assert features.shape[-1] == features.shape[-2]
+    # assert features.ndim == 4
+    # assert features.shape[-1] == features.shape[-2]
     
     size = features.shape[-1]
     avg = F.avg_pool2d(features, kernel_size=size)   # [B, C, 1, 1]
@@ -57,15 +57,21 @@ def features_to_emb(features: torch.Tensor) -> torch.Tensor:
 class BalancedMarginContrastiveLoss(nn.Module):
     _ZERO = torch.tensor(0)
 
-    def __init__(self, alpha: float = 0.5, beta: float = 1.5) -> None:
+    def __init__(
+        self,
+        alpha: float = 0.5,
+        beta: float = 1.5,
+        eps: float = 1e-8
+    ) -> None:
         super().__init__()
-        
+
         self.alpha: float = alpha
         self.beta: float = beta
+        self.eps: float = eps
     
     def forward(self, embs, ids):
-        assert len(embs) == len(ids)
-        assert (embs.ndim == 2) and (ids.ndim == 1)
+        # assert len(embs) == len(ids)
+        # assert (embs.ndim == 2) and (ids.ndim == 1)
 
         idxs = torch.arange(0, len(embs))
         idx_pairs = torch.combinations(idxs, 2)
@@ -83,8 +89,8 @@ class BalancedMarginContrastiveLoss(nn.Module):
         n_neg = torch.sum(neg_pairs_mask).item()
         n_pos = len(neg_pairs_mask) - n_neg
 
-        pos_weight = 1.0 / n_pos
-        neg_weight = 1.0 / n_neg
+        pos_weight = 1.0 / (n_pos + self.eps)
+        neg_weight = 1.0 / (n_neg + self.eps)
 
         weights = torch.full_like(pair_dist, pos_weight)
         weights[neg_pairs_mask] = neg_weight
@@ -209,9 +215,9 @@ class EMMLossComputation(object):
     ):
         cls_labels, reg_targets = self.prepare_targets(locations, src, targets)
         
-        box_regression = (box_regression.permute(0, 2, 3, 1).contiguous()).view(
-            -1, 4
-        )
+        box_regression = (
+            box_regression.permute(0, 2, 3, 1).contiguous()
+        ).view(-1, 4)
         box_regression_flatten = box_regression.view(-1, 4)
         reg_targets_flatten = reg_targets.view(-1, 4)
         cls_labels_flatten = cls_labels.view(-1)
@@ -245,7 +251,7 @@ class EMMLossComputation(object):
         else:
             reg_loss = 0. * box_regression_flatten.sum()
             centerness_loss = 0. * centerness_flatten.sum()
-            emb_loss = 0.
+            emb_loss = torch.tensor(0., device=template_features.device)
         
         return (
             self.loss_weight * cls_loss,
