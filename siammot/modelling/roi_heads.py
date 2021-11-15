@@ -86,7 +86,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     )
 
                 # TODO Exploit features through the parameter? Yeah....
-                detections = self.solver(detections)
+                detections = self.solver(detections, features)
                 
                 # Get the current state for tracking.
                 # Extract fresh feature ROIs for ongoing detections.

@@ -144,6 +144,8 @@ class EMMLossComputation(object):
         self.cfg = cfg
         self.pos_ratio = cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION
         self.loss_weight = cfg.MODEL.TRACK_HEAD.EMM.TRACK_LOSS_WEIGHT
+        # TODO Add parametric computation of embedding loss.
+        # TODO Add parameter whether to use contrastive or triplet loss.
     
     def prepare_targets(self, points, src_bbox, gt_bbox):
         cls_labels, reg_targets = self.compute_targets(

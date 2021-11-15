@@ -167,7 +167,7 @@ class TrackSolverOrig(TrackSolver):
             nms_thresh, add_debug
         )
     
-    def forward(self, detection: List[BoxList]):
+    def forward(self, detection: List[BoxList], features=None):
         """
         The solver is to merge predictions from detection branch as well as
         from track branch.
@@ -273,7 +273,7 @@ class TrackSolverReid(TrackSolver):
         self.reid_man: ReIdManager = reid_man
         self.sim_thresh: float = sim_thresh
 
-    def forward(self, detections: List[BoxList]):
+    def forward(self, detections: List[BoxList], features=None):
         """
         The solver is to merge predictions from the detection branch as well as
         from the track branch. The goal is to assign a unique track ID to
@@ -432,7 +432,7 @@ class TrackSolverFeatureEmb(TrackSolver):
         self.iou_thresh_2: float = iou_thresh_2
         self.cos_sim_thresh: float = cos_sim_thresh
 
-    def forward(self, detections: List[BoxList]):
+    def forward(self, detections: List[BoxList], features):
         """
         The solver is to merge predictions from the detection branch as well as
         from the track branch. The goal is to assign a unique track ID to
@@ -471,34 +471,7 @@ class TrackSolverFeatureEmb(TrackSolver):
         # during nms if they highly overlap
         all_scores[active_mask] += 1.
 
-        features = None
-        # TODO Implement feature extracting.
-        cache = self.track_pool.get_cache()
-        # cache[track_id] returns a tuple. The first element is a [128, 15, 15].
-        new_detections_mask = all_ids < 0
-        new_detections = detections[new_detections_mask]
-        new_detections_template_features = (
-            self.track_head.extract_template_features(
-                features, new_detections
-            )
-        )
-        template_features_combined = []
-        new_detections_idx = 0
-        for id_ in all_ids.tolist():
-            if id_ >= 0:
-                template_features = cache[id_][0]
-                template_features = torch.unsqueeze(template_features, dim=0)
-            else:
-                template_features = (
-                    new_detections_template_features[new_detections_idx]
-                )
-                new_detections_idx += 1
-            template_features_combined.append(template_features)
-        
-        template_features_combined = torch.stack(
-            template_features_combined, dim=0
-        )
-        embs = features_to_emb(template_features_combined) 
+        embs = self._get_detections_embeddings(detections, features)
         nms_detection = boxlist_feature_nms(
             detections, embs, self.iou_thresh_1, self.iou_thresh_2,
             self.cos_sim_thresh
@@ -507,8 +480,8 @@ class TrackSolverFeatureEmb(TrackSolver):
         _ids = nms_detection.get_field('ids')
         _scores = nms_detection.get_field('scores')
         
-        _scores[_scores >= 2.] = _scores[_scores >= 2.] - 2.
-        _scores[_scores >= 1.] = _scores[_scores >= 1.] - 1.
+        _scores[_scores >= 2.] -= 2
+        _scores[_scores >= 1.] -= 1
 
         self._add_debug('after NMS', nms_detection)
 
@@ -554,7 +527,40 @@ class TrackSolverFeatureEmb(TrackSolver):
         track_pool.increment_frame()
         
         return [combined_detection]
+    
+    def _get_detections_embeddings(
+        self,
+        detections: BoxList,
+        features
+    ) -> torch.Tensor:
+        cache = self.track_pool.get_cache()
 
+        ids = detections.get_field('ids')
+        new_detections = detections[ids < 0]
+        new_detections_template_features = (
+            self.track_head.extract_template_features(
+                features, new_detections
+            )
+        )
+        template_features_combined = []
+        new_detections_idx = 0
+        for id_ in ids.tolist():
+            if id_ >= 0:
+                template_features = cache[id_][0]
+                template_features = torch.unsqueeze(template_features, dim=0)
+            else:
+                template_features = (
+                    new_detections_template_features[new_detections_idx]
+                )
+                new_detections_idx += 1
+            template_features_combined.append(template_features)
+        
+        template_features_combined = torch.stack(
+            template_features_combined, dim=0
+        )
+        embs = features_to_emb(template_features_combined) 
+
+        return embs
 
 
 def build_track_solver(
