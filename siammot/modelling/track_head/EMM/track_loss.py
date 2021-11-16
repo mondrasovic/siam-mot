@@ -42,8 +42,8 @@ def features_to_emb(features: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: embedding vectors of shape [B, C]
     """
-    # assert features.ndim == 4
-    # assert features.shape[-1] == features.shape[-2]
+    assert features.ndim == 4
+    assert features.shape[-1] == features.shape[-2]
     
     size = features.shape[-1]
     avg = F.avg_pool2d(features, kernel_size=size)   # [B, C, 1, 1]
@@ -139,13 +139,17 @@ class EMMLossComputation(object):
     def __init__(self, cfg):
         self.box_reg_loss_func = IOULoss()
         self.centerness_loss_func = nn.BCEWithLogitsLoss()
-        self.emb_loss_func = BalancedMarginContrastiveLoss()
+
+        feature_emb_loss_name = cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS
+        self.emb_loss_func = None
+        if feature_emb_loss_name == 'contrastive':
+            self.emb_loss_func = BalancedMarginContrastiveLoss()
+        elif feature_emb_loss_name == 'triplet':
+            raise NotImplementedError
 
         self.cfg = cfg
         self.pos_ratio = cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION
         self.loss_weight = cfg.MODEL.TRACK_HEAD.EMM.TRACK_LOSS_WEIGHT
-        # TODO Add parametric computation of embedding loss.
-        # TODO Add parameter whether to use contrastive or triplet loss.
     
     def prepare_targets(self, points, src_bbox, gt_bbox):
         cls_labels, reg_targets = self.compute_targets(
@@ -233,6 +237,8 @@ class EMMLossComputation(object):
         box_cls = log_softmax(box_cls)
         cls_loss = select_cross_entropy_loss(box_cls, cls_labels_flatten)
         
+        emb_loss = torch.tensor(0., device=template_features.device)
+
         if in_box_inds.numel() > 0:
             centerness_targets = self.compute_centerness_targets(
                 reg_targets_flatten
@@ -247,13 +253,13 @@ class EMMLossComputation(object):
                 centerness_targets
             )
 
-            valid_mask = (ids >= 0)
-            embs = features_to_emb(template_features[valid_mask])
-            emb_loss = self.emb_loss_func(embs, ids[valid_mask])
+            if self.emb_loss_func is not None:
+                valid_mask = (ids >= 0)
+                embs = features_to_emb(template_features[valid_mask])
+                emb_loss = self.emb_loss_func(embs, ids[valid_mask])
         else:
             reg_loss = 0. * box_regression_flatten.sum()
             centerness_loss = 0. * centerness_flatten.sum()
-            emb_loss = torch.tensor(0., device=template_features.device)
         
         return (
             self.loss_weight * cls_loss,

@@ -542,20 +542,23 @@ class TrackSolverFeatureEmb(TrackSolver):
                 features, new_detections
             )
         )
+        
         template_features_combined = []
         new_detections_idx = 0
         for id_ in ids.tolist():
             if id_ >= 0:
                 template_features = cache[id_][0]
-                template_features = torch.unsqueeze(template_features, dim=0)
             else:
                 template_features = (
                     new_detections_template_features[new_detections_idx]
                 )
                 new_detections_idx += 1
+            
+            if template_features.ndim == 3:
+                template_features = torch.unsqueeze(template_features, dim=0)
             template_features_combined.append(template_features)
         
-        template_features_combined = torch.stack(
+        template_features_combined = torch.cat(
             template_features_combined, dim=0
         )
         embs = features_to_emb(template_features_combined) 
@@ -574,7 +577,8 @@ def build_track_solver(
     nms_thresh = cfg.MODEL.TRACK_HEAD.NMS_THRESH
     add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
 
-    if cfg.MODEL.TRACK_HEAD.USE_REID:
+    solver_type = cfg.MODEL.TRACK_HEAD.SOLVER_TYPE
+    if solver_type == 'ext_reid':
         reid_man = build_or_get_existing_reid_manager(cfg)
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
 
@@ -582,7 +586,7 @@ def build_track_solver(
             track_pool, reid_man, track_thresh, start_track_thresh,
             resume_track_thresh, nms_thresh, cos_sim_thresh, add_debug
         )
-    elif cfg.MODEL.TRACK_HEAD.USE_FEATURE_EMB:
+    elif solver_type == 'feature_emb':
         iou_thresh_1 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_1
         iou_thresh_2 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_2
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
@@ -592,10 +596,12 @@ def build_track_solver(
             resume_track_thresh, iou_thresh_1, iou_thresh_2, cos_sim_thresh, 
             add_debug
         )
-    else:
+    elif solver_type == 'original':
         track_solver = TrackSolverOrig(
             track_pool, track_thresh, start_track_thresh, resume_track_thresh,
             nms_thresh, add_debug
         )
+    else:
+        raise ValueError('unrecognized solver type')
 
     return track_solver
