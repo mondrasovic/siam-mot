@@ -121,6 +121,11 @@ class EMM(torch.nn.Module):
         
         cache = (x, sr, detection)
         return cache
+    
+    def extract_template_features(self, features, detection):
+        detection = [detection]
+        x = self.feature_extractor(features, detection)
+        return x
 
 
 def decode_response(

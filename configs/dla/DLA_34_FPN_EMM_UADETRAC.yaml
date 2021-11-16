@@ -57,7 +57,7 @@ MODEL:
   TRACK_HEAD:
     NMS_THRESH: 0.5
     MAX_DORMANT_FRAMES: 50
-    USE_REID: True
+    SOLVER_TYPE: 'ext_reid'
     ADD_DEBUG: True
     FREEZE_DORMANT: True
   
