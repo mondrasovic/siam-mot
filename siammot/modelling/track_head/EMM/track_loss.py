@@ -1,4 +1,5 @@
 import torch
+
 from torch import nn
 from torch.nn import functional as F
 
@@ -34,29 +35,191 @@ def features_to_emb(features: torch.Tensor) -> torch.Tensor:
     """Computes embedding vectors from tracker template (exemplar) features.
     For each feature tensor in a batch, it applies global average pooling along
     the channel dimension. Afterwards, it L2-normalizes the vectors to project
-    them onto a hypersphere.
+    them onto a unit hypersphere.
 
     Args:
-        features (torch.Tensor): template features of shape [B, C, S, S]
+        features (torch.Tensor): Template features of shape [B, C, S, S].
 
     Returns:
-        torch.Tensor: embedding vectors of shape [B, C]
+        torch.Tensor: Embedding vectors of shape [B, C].
     """
-    assert features.ndim == 4
-    assert features.shape[-1] == features.shape[-2]
-    
-    size = features.shape[-1]
-    avg = F.avg_pool2d(features, kernel_size=size)   # [B, C, 1, 1]
-    avg  = avg.squeeze()  # [B, C]
+    batch_size, n_channels, kernel_size, _ = features.shape
+    avg = F.avg_pool2d(features, kernel_size=kernel_size)   # [B, C, 1, 1]
+    avg  = avg.reshape((batch_size, n_channels))  # [B, C]
     norm = torch.linalg.norm(avg, dim=1)  # [B,]
     emb = avg / norm[..., None]  # [B, C]
     
     return emb
 
 
-class BalancedMarginContrastiveLoss(nn.Module):
-    _ZERO = torch.tensor(0)
+def _pairwise_l2_dist(
+    embs: torch.Tensor,
+    *,
+    squared: bool = False,
+    eps: float = 1e-16
+) -> torch.Tensor:
+    """Computes a 2D matrix of L2 or squared L2 distances between all the
+    embeddings.
 
+    Args:
+        embs (torch.Tensor): embeddings of shape [B,E]
+        squared (bool, optional): If True, the output is the pairwise squared L2
+        distance, if False, then standard L2 distance is computed. Defaults to
+        False.
+        eps (float, optional): Small value to add to the zero distances to
+        prevent infinite gradients after applying sqrt(). Defaults to 1e-16.
+
+    Returns:
+        torch.Tensor: A 2D distance matrix of shape [B,B].
+    """
+    dot_product = torch.matmul(embs, embs.T)  # [B,B]
+    square_norm = torch.diag(dot_product)  # [B,]
+
+    # Apply the l2 norm formula using the dot product:
+    # ||A - B||^2 = ||A||^2 - 2<A,B> + ||B||^2
+    distances = (
+        torch.unsqueeze(square_norm, dim=1) -  # [B,1]
+        (2 * dot_product) +  # [B,B]
+        torch.unsqueeze(square_norm, dim=0)  # [1,B]
+    )
+
+    # Due to potential errors caused by numerical instability, some values may
+    # have become negative. Thus, we have to make sure the min. value is zero.
+    zero = torch.tensor(0.0)
+    distances = torch.maximum(distances, zero)  # [B,B]
+
+    if not squared:
+        # Since the gradient of sqrt(0) is infinite, we, therefore, have to
+        # add a small epsilon to the zero terms to prevent this.
+        zeroes_mask = ((distances - zero) < eps).float()  # [B,B]
+        distances += zeroes_mask * eps
+        
+        distances = torch.sqrt(distances)  # [B,B]
+
+        # Set all the "zero" values back to zero after adding the epsilon value.
+        distances *= (1.0 - zeroes_mask)
+    
+    return distances
+
+
+def _get_anchor_positive_mask(labels: torch.Tensor) -> torch.Tensor:
+    """Generates a 2D mask where M[a,p] is True iff anchor (a) and positive (p)
+    have identical labels but distinct indices, i.e., belong to different
+    objects.
+
+    Args:
+        labels (torch.Tensor): Labels of shape [B,].
+
+    Returns:
+        torch.Tensor: 2D boolean mask of shape[B,B].
+    """
+    labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
+    idxs_neq_mask = ~torch.eye(len(labels), dtype=torch.bool)  # [B,B]
+    anchor_positive_mask = (labels_eq_mask & idxs_neq_mask)  # [B,B]
+
+    return anchor_positive_mask
+
+
+def _get_anchor_negative_mask(labels: torch.Tensor) -> torch.Tensor:
+    """Generates a 2D mask where M[a,n] is True iff anchor (a) and negative (n)
+    have distinct labels.
+
+    Args:
+        labels (torch.Tensor): Labels of shape [B,].
+
+    Returns:
+        torch.Tensor: 2D boolean mask of shape[B,B].
+    """
+    anchor_negative_mask = (labels[..., None] != labels[None, ...])  # [B,B]
+
+    return anchor_negative_mask
+
+
+# def get_triplet_mask(labels: torch.Tensor) -> torch.Tensor:
+#     idxs_neq_mask = ~torch.eye(len(labels), dtype=torch.bool)  # [B,B]
+#     idx_i_neq_j_mask = torch.unsqueeze(idxs_neq_mask, dim=2)  # [B,B,1]
+#     idx_i_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=1)  # [B,1,B]
+#     idx_j_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=0)  # [1,B,B]
+#     triplet_idxs_neq_mask = (
+#         idx_i_neq_j_mask & idx_i_neq_k_mask & idx_j_neq_k_mask  # [B,B,B]
+#     )
+
+#     labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
+#     label_i_eq_j = torch.unsqueeze(labels_eq_mask, dim=2)  # [B,B,1]
+#     label_i_neq_k = ~torch.unsqueeze(labels_eq_mask, dim=1)  # [B,1,B]
+#     triplet_labels_valid_mask = (label_i_eq_j & label_i_neq_k)  # [B,B,B]
+
+#     triplet_mask = (
+#         triplet_idxs_neq_mask & triplet_labels_valid_mask  # [B,B,B]
+#     )
+
+#     return triplet_mask
+
+class SemiHardTripletLoss(nn.Module):
+    """Triplet loss with hard negative mining."""
+
+    def __init__(self, margin: float = 1.0, squared: bool = True) -> None:
+        """Constructor.
+
+        Args:
+            margin (float, optional): Margin of separation between positive and
+            negative samples. Defaults to 1.0.
+            squared (bool, optional): If True, the  the pairwise squared L2
+            distance is used, if False, then standard L2 distance is computed.
+            Defaults to True.
+        """
+        super().__init__()
+
+        self.margin: float = margin
+        self.squared: bool = squared
+    
+    def forward(self, embs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """Computes the loss between all the hard triplets. For a given anchor
+        sample, a hard triplet is formed by finding the hardest positive, i.e,
+        a different sample with the same label which has the maximum distance;
+        and also the hardest negative, .e., a different sample with a distinct
+        label which has the minimum distance.
+
+        Args:
+            embs (torch.Tensor): Embeddings of shape [B,E].
+            labels (torch.Tensor): Labels of shape [B,].
+
+        Returns:
+            torch.Tensor: Triplet loss scalar.
+        """
+        pairwise_dist = _pairwise_l2_dist(embs, squared=self.squared)
+
+        anchor_positive_mask = _get_anchor_positive_mask(
+            labels
+        ).float()  # [B,B]
+        anchor_positive_dist = pairwise_dist * anchor_positive_mask  # [B,B]
+        hardest_positive_dist = torch.amax(
+            anchor_positive_dist, dim=1, keepdim=True
+        )  # [B,1]
+
+        anchor_negative_mask = _get_anchor_negative_mask(
+            labels
+        ).float()  # [B,B]
+        max_anchor_negative_dist = torch.amax(
+            pairwise_dist, dim=1, keepdim=True
+        )  # [B,1]
+        anchor_negative_dist = (
+            pairwise_dist +
+            (1 - anchor_negative_mask) * max_anchor_negative_dist
+        )  # [B,B]
+        hardest_negative_dist = torch.amin(
+            anchor_negative_dist, dim=1, keepdim=True
+        )  # [B,1]
+
+        triplet_loss = torch.clamp(
+            hardest_positive_dist - hardest_negative_dist + self.margin, min=0
+        )  # [B,1]
+        triplet_loss = torch.mean(triplet_loss)  # [c]
+
+        return triplet_loss
+
+
+class BalancedMarginContrastiveLoss(nn.Module):
     def __init__(
         self,
         alpha: float = 0.5,
@@ -70,9 +233,6 @@ class BalancedMarginContrastiveLoss(nn.Module):
         self.eps: float = eps
     
     def forward(self, embs, ids):
-        # assert len(embs) == len(ids)
-        # assert (embs.ndim == 2) and (ids.ndim == 1)
-
         idxs = torch.arange(0, len(embs))
         idx_pairs = torch.combinations(idxs, 2)
         emb_pairs = embs[idx_pairs]
@@ -98,8 +258,8 @@ class BalancedMarginContrastiveLoss(nn.Module):
 
         loss = torch.sum(
             weights * 
-            torch.maximum(
-                self.alpha + labels * (pair_dist - self.beta), self._ZERO
+            torch.clip(
+                self.alpha + labels * (pair_dist - self.beta), min=0
             )
         )
 
@@ -141,11 +301,14 @@ class EMMLossComputation(object):
         self.centerness_loss_func = nn.BCEWithLogitsLoss()
 
         feature_emb_loss_name = cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS
-        self.emb_loss_func = None
+        if feature_emb_loss_name == '':
+            self.emb_loss_func = None
         if feature_emb_loss_name == 'contrastive':
             self.emb_loss_func = BalancedMarginContrastiveLoss()
         elif feature_emb_loss_name == 'triplet':
-            raise NotImplementedError
+            self.emb_loss_func = SemiHardTripletLoss()
+        else:
+            raise ValueError('unrecognized embedding loss function')
 
         self.cfg = cfg
         self.pos_ratio = cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION

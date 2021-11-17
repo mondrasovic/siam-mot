@@ -6,102 +6,142 @@ import dataclasses
 import subprocess
 import itertools
 
-from typing import Callable, Iterable, Iterator, Sequence, List, Tuple
+from typing import Iterable, Sequence, List, Tuple
 
 
 @dataclasses.dataclass(frozen=True)
 class CfgOptSpec:
     name: str
-    vals: Sequence[str]
-
-    def iter_name_val_pairs(self) -> Iterator[Tuple[str, str]]:
-        yield from itertools.product((self.name,), self.vals)
+    alias: str
+    val: str
 
 
-CsvFilePathBuilderT = Callable[[Sequence[Tuple[str, str]]], str]
+def build_model_path(train_dir_path: str, model_suffix: str) -> str:
+    file_name = f'model_{model_suffix}.pth'
+    return os.path.join(train_dir_path, file_name)
 
 
-def _build_csv_file_name(cfg_opts: Sequence[Tuple[str, str]]) -> str:
-    file_name = "eval"
-    for opt_name, opt_val in cfg_opts:
-        if "COS_SIM" in opt_name:
-            file_name += "_cossim_" + opt_val.replace(".", "p")
-        elif "DORMANT" in opt_name:
-            file_name += "_ndormant_" + opt_val
-        else:
-            raise ValueError("unhandled option")
-    file_name += ".csv"
+def build_output_dir_path(
+    dataset_name: str, model_suffix: str, cfg_opts: Iterable[str]
+) -> str:
+    if dataset_name == 'UA_DETRAC':
+        dataset_shortcut = 'uadt'
+    else:
+        raise ValueError('unrecognized dataset name')
+    
+    tokens = [dataset_shortcut]
+    tokens.extend(f'{c.alias}-{c.val}' for c in cfg_opts)
+    tokens.append(model_suffix)
 
-    return file_name
+    output_dir_name = '_'.join(tokens)
+    output_dir_path = os.path.join('.', output_dir_name)
+
+    return output_dir_path
 
 
 def build_run_test_cmd(
-    config_file_path,
-    model_file_path,
-    csv_file_path,
-    cfg_opts
+    config_file_path: str,
+    model_file_path: str,
+    dataset_name: str,
+    data_subset: str,
+    csv_file_path: str,
+    output_dir_path: str,
+    cfg_opts: Iterable[CfgOptSpec]
 ):
     run_test_args = [
-        "python", "-m", "tools.test_net", "--config-file", config_file_path,
-        "--model-file", model_file_path, "--set", "train",
-        "--eval-csv-file", csv_file_path
+        'python', '-m', 'tools.test_net',
+        '--config-file', config_file_path,
+        '--model-file', model_file_path,
+        '--test-dataset', dataset_name,
+        '--set', data_subset,
+        '--eval-csv-file', csv_file_path,
+        '--output-dir', output_dir_path,
     ]
     for cfg_opt in cfg_opts:
-        run_test_args.extend(cfg_opt)
+        run_test_args.append(cfg_opt.name)
+        run_test_args.append(cfg_opt.val)
 
     return run_test_args
 
 
 def iter_cmd_args(
+    train_dir_path: str,
     config_file_path: str,
-    model_file_path: str,
-    cmd_arg_specs: Iterable[CfgOptSpec],
-    output_dir_path: str,
-    csv_file_name_builder: CsvFilePathBuilderT
+    dataset_name: str,
+    data_subset: str,
+    csv_file_name: str,
+    model_suffixes: Iterable[str],
+    cfg_opts: Iterable[CfgOptSpec]
 ) -> List[str]:
-    cfg_name_val_iters = tuple(c.iter_name_val_pairs() for c in cmd_arg_specs)
-    for cfg_opts in itertools.product(*cfg_name_val_iters):
-        csv_file_name = csv_file_name_builder(cfg_opts)
-        csv_file_path = os.path.join(output_dir_path, csv_file_name)
-        cmd = build_run_test_cmd(
-            config_file_path, model_file_path, csv_file_path, cfg_opts
-        )
-        yield cmd
+    for model_suffix in model_suffixes:
+        for cfg_opt in cfg_opts:
+            model_file_path = build_model_path(train_dir_path, model_suffix)
+            output_dir_path = build_output_dir_path(
+                dataset_name, model_suffix, cfg_opt
+            )
+            csv_file_path = os.path.join(output_dir_path, csv_file_name)
+
+            cmd = build_run_test_cmd(
+                config_file_path, model_file_path, dataset_name, data_subset,
+                csv_file_path, output_dir_path, cfg_opt
+            )
+            yield cmd
 
 
 @click.command()
-@click.argument("inference_dump_dir_path", type=click.Path())
-@click.argument("config_file_path", type=click.Path(exists=True))
-@click.argument("model_file_path", type=click.Path(exists=True))
+@click.argument('train_dir_path', type=click.Path(exists=True))
+@click.argument('config_file_path', type=click.Path(exists=True))
 @click.option(
-    "-o", "--output-dir-path", type=click.Path(), default=".",
-    show_default=True, help="Output directory path"
+    '-d', '--dataset', default='UA_DETRAC', show_default=True,
+    help="Dataset name."
+)
+@click.option(
+    '-s', '--subset', default='test', show_default=True, help="Data subset."
+)
+@click.option(
+    '--csv-file-name', default='eval_results.csv', show_default=True,
+    help="Evaluation results CSV file name."
 )
 def main(
-    inference_dump_dir_path,
-    config_file_path,
-    model_file_path,
-    output_dir_path
+    train_dir_path: click.Path,
+    config_file_path: click.Path,
+    dataset: str,
+    subset: str,
+    csv_file_name: str,
 ) -> int:
-   
+    model_suffixes = (
+        'final', '0080000', '0070000', '0060000', '0050000', '0040000',
+        '0030000',
+    )
     cmd_arg_specs = (
-        CfgOptSpec(
-            "MODEL.TRACK_HEAD.COS_SIM_THRESH",
-            ("0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9")
+        (
+            CfgOptSpec(
+                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'contrastive'
+            ),
+            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'feature_emb')
+        ),
+        (
+            CfgOptSpec(
+                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'contrastive'
+            ),
+            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'original')
+        ),
+        (
+            CfgOptSpec(
+                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'original'
+            ),
+            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'original')
         ),
     )
 
     for cmd in iter_cmd_args(
-        config_file_path, model_file_path, cmd_arg_specs, output_dir_path,
-        _build_csv_file_name
+        train_dir_path, config_file_path, dataset, subset, csv_file_name,
+        model_suffixes, cmd_arg_specs
     ):
-        if os.path.exists(inference_dump_dir_path):
-            shutil.rmtree(inference_dump_dir_path)
-
         cmd_str = " ".join(cmd)
-        print(f"Running command:\n{cmd_str}\n{'*' * 80}\n")
+        print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
 
-        subprocess.call(cmd, text=True, shell=True)
+        # subprocess.call(cmd, text=True, shell=True)
     
     return 0
 
