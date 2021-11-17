@@ -1,12 +1,12 @@
 import os
 import sys
+import json
 import click
 import shutil
 import dataclasses
 import subprocess
-import itertools
 
-from typing import Iterable, Sequence, List, Tuple
+from typing import Iterable, List
 
 
 @dataclasses.dataclass(frozen=True)
@@ -22,7 +22,8 @@ def build_model_path(train_dir_path: str, model_suffix: str) -> str:
 
 
 def build_output_dir_path(
-    dataset_name: str, model_suffix: str, cfg_opts: Iterable[str]
+    output_root_path: str, dataset_name: str, model_suffix: str,
+    cfg_opts: Iterable[str]
 ) -> str:
     if dataset_name == 'UA_DETRAC':
         dataset_shortcut = 'uadt'
@@ -34,7 +35,7 @@ def build_output_dir_path(
     tokens.append(model_suffix)
 
     output_dir_name = '_'.join(tokens)
-    output_dir_path = os.path.join('.', output_dir_name)
+    output_dir_path = os.path.join(output_root_path, output_dir_name)
 
     return output_dir_path
 
@@ -69,16 +70,21 @@ def iter_cmd_args(
     config_file_path: str,
     dataset_name: str,
     data_subset: str,
+    output_root_path: str,
     csv_file_name: str,
     model_suffixes: Iterable[str],
-    cfg_opts: Iterable[CfgOptSpec]
+    cfg_opts: Iterable[CfgOptSpec],
+    rm_existing_output: bool = True
 ) -> List[str]:
     for model_suffix in model_suffixes:
         for cfg_opt in cfg_opts:
             model_file_path = build_model_path(train_dir_path, model_suffix)
             output_dir_path = build_output_dir_path(
-                dataset_name, model_suffix, cfg_opt
+                output_root_path, dataset_name, model_suffix, cfg_opt
             )
+            if rm_existing_output and os.path.exists(output_dir_path):
+                shutil.rmtree(output_dir_path)
+            
             csv_file_path = os.path.join(output_dir_path, csv_file_name)
 
             cmd = build_run_test_cmd(
@@ -89,54 +95,23 @@ def iter_cmd_args(
 
 
 @click.command()
-@click.argument('train_dir_path', type=click.Path(exists=True))
-@click.argument('config_file_path', type=click.Path(exists=True))
-@click.option(
-    '-d', '--dataset', default='UA_DETRAC', show_default=True,
-    help="Dataset name."
-)
-@click.option(
-    '-s', '--subset', default='test', show_default=True, help="Data subset."
-)
-@click.option(
-    '--csv-file-name', default='eval_results.csv', show_default=True,
-    help="Evaluation results CSV file name."
-)
-def main(
-    train_dir_path: click.Path,
-    config_file_path: click.Path,
-    dataset: str,
-    subset: str,
-    csv_file_name: str,
-) -> int:
-    model_suffixes = (
-        'final', '0080000', '0070000', '0060000', '0050000', '0040000',
-        '0030000',
-    )
-    cmd_arg_specs = (
-        (
-            CfgOptSpec(
-                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'contrastive'
-            ),
-            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'feature_emb')
-        ),
-        (
-            CfgOptSpec(
-                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'contrastive'
-            ),
-            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'original')
-        ),
-        (
-            CfgOptSpec(
-                'MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS', 'loss', 'original'
-            ),
-            CfgOptSpec('MODEL.TRACK_HEAD.SOLVER_TYPE', 'slr', 'original')
-        ),
-    )
+@click.argument('param_json_file_path', type=click.Path(exists=True))
+def main(param_json_file_path: click.Path) -> int:
+    with open(param_json_file_path, 'rt') as file_handle:
+        params = json.load(file_handle)
+    
+    train_dir_path = params['train_dir_path']
+    config_file_path = params['config_file_path']
+    dataset_name = params['dataset_name']
+    data_subset = params['data_subset']
+    output_root_path = params['output_root_path']
+    csv_file_name = params['csv_file_name']
+    model_suffixes = params['model_suffixes']
+    cfg_opts = [[CfgOptSpec(*c) for c in g] for g in params['cfg_opts_groups']]
 
     for cmd in iter_cmd_args(
-        train_dir_path, config_file_path, dataset, subset, csv_file_name,
-        model_suffixes, cmd_arg_specs
+        train_dir_path, config_file_path, dataset_name, data_subset,
+        output_root_path, csv_file_name, model_suffixes, cfg_opts
     ):
         cmd_str = " ".join(cmd)
         print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")

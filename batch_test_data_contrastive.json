@@ -1,5 +1,5 @@
 {
-    "train_dir_path": "./demos/models/uadt_orig/DLA-34-FPN_box_EMM_UA_DETRAC_uadt_orig",
+    "train_dir_path": "./demos/models/uadt_contrastive/DLA-34-FPN_box_EMM_UA_DETRAC_uadt_contrastive",
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
@@ -11,7 +11,11 @@
     ],
     "cfg_opts_groups": [
         [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "loss", "original"],
+            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "loss", "contrastive"],
+            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "slr", "feature_emb"]
+        ],
+        [
+            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "loss", "contrastive"],
             ["MODEL.TRACK_HEAD.SOLVER_TYPE", "slr", "original"]
         ]
     ]
