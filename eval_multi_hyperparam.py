@@ -16,9 +16,16 @@ class CfgOptSpec:
     val: str
 
 
+def normalize_path(path: str) -> str:
+    return path.replace('\\', '/')
+
+
 def build_model_path(train_dir_path: str, model_suffix: str) -> str:
     file_name = f'model_{model_suffix}.pth'
-    return os.path.join(train_dir_path, file_name)
+    model_path = os.path.join(train_dir_path, file_name)
+    model_path = normalize_path(model_path)
+
+    return model_path
 
 
 def build_output_dir_path(
@@ -36,6 +43,7 @@ def build_output_dir_path(
 
     output_dir_name = '_'.join(tokens)
     output_dir_path = os.path.join(output_root_path, output_dir_name)
+    output_dir_path = normalize_path(output_dir_path)
 
     return output_dir_path
 
@@ -86,6 +94,7 @@ def iter_cmd_args(
                 shutil.rmtree(output_dir_path)
             
             csv_file_path = os.path.join(output_dir_path, csv_file_name)
+            csv_file_path = normalize_path(csv_file_path)
 
             cmd = build_run_test_cmd(
                 config_file_path, model_file_path, dataset_name, data_subset,
