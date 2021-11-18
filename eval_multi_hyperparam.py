@@ -125,7 +125,7 @@ def main(param_json_file_path: click.Path) -> int:
         cmd_str = " ".join(cmd)
         print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
 
-        #subprocess.call(cmd, text=True, shell=True)
+        subprocess.call(cmd, text=True, shell=True)
     
     return 0
 
