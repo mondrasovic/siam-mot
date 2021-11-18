@@ -1,12 +1,12 @@
 {
     "train_dir_path": "./demos/models/uadt_orig/DLA-34-FPN_box_EMM_UA_DETRAC_uadt_orig",
-    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC.yaml",
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
     "output_root_path": "./eval",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
-        "0040000"
+        "0060000", "0070000", "0080000", "final"
     ],
     "cfg_opts_groups": [
         [

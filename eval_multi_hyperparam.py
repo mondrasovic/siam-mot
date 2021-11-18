@@ -57,7 +57,7 @@ def build_run_test_cmd(
     cfg_opts: Iterable[CfgOptSpec]
 ):
     run_test_args = [
-        'python', '-m', 'tools.test_net',
+        'python3', '-m', 'tools.test_net',
         '--config-file', config_file_path,
         '--model-file', model_file_path,
         '--test-dataset', dataset_name,

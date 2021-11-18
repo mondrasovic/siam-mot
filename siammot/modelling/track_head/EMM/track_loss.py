@@ -114,7 +114,9 @@ def _get_anchor_positive_mask(labels: torch.Tensor) -> torch.Tensor:
         torch.Tensor: 2D boolean mask of shape[B,B].
     """
     labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
-    idxs_neq_mask = ~torch.eye(len(labels), dtype=torch.bool)  # [B,B]
+    idxs_neq_mask = ~torch.eye(
+        len(labels), dtype=torch.bool, device=labels.device
+    )  # [B,B]
     anchor_positive_mask = (labels_eq_mask & idxs_neq_mask)  # [B,B]
 
     return anchor_positive_mask
@@ -382,6 +384,8 @@ class EMMLossComputation(object):
         self, locations, box_cls, box_regression, centerness, src, targets,
         template_features, ids
     ):
+        device = template_features.device
+
         cls_labels, reg_targets = self.prepare_targets(locations, src, targets)
         
         box_regression = (
@@ -400,7 +404,7 @@ class EMMLossComputation(object):
         box_cls = log_softmax(box_cls)
         cls_loss = select_cross_entropy_loss(box_cls, cls_labels_flatten)
         
-        emb_loss = torch.tensor(0., device=template_features.device)
+        emb_loss = torch.tensor(0., device=device)
 
         if in_box_inds.numel() > 0:
             centerness_targets = self.compute_centerness_targets(

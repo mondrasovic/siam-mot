@@ -72,10 +72,12 @@ def main(results_patt, report_file):
         os.system(f'pdflatex {latex_file_path.stem}')
         os.chdir(prev_cwd)
 
-        shutil.move(
-            str(tmp_dir / f'{latex_file_path.stem}.pdf'),
-            str(curr_dir / report_file)
-        )
+        src_pdf_file = tmp_dir / f'{latex_file_path.stem}.pdf'
+        dst_pdf_file = curr_dir / report_file
+
+        if dst_pdf_file.exists():
+            dst_pdf_file.unlink()
+        shutil.move(str(src_pdf_file), str(dst_pdf_file))
         shutil.rmtree(str(tmp_dir))
     
     return 0
