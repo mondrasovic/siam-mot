@@ -2,7 +2,6 @@ import os
 import sys
 import json
 import click
-import shutil
 import dataclasses
 import subprocess
 
@@ -58,7 +57,7 @@ def build_run_test_cmd(
     cfg_opts: Iterable[CfgOptSpec]
 ):
     run_test_args = [
-        'python3', '-m', 'tools.test_net',
+        'python', '-m', 'tools.test_net',
         '--config-file', config_file_path,
         '--model-file', model_file_path,
         '--test-dataset', dataset_name,
@@ -81,8 +80,7 @@ def iter_cmd_args(
     output_root_path: str,
     csv_file_name: str,
     model_suffixes: Iterable[str],
-    cfg_opts: Iterable[CfgOptSpec],
-    rm_existing_output: bool = True
+    cfg_opts: Iterable[CfgOptSpec]
 ) -> List[str]:
     for model_suffix in model_suffixes:
         for cfg_opt in cfg_opts:
@@ -90,8 +88,6 @@ def iter_cmd_args(
             output_dir_path = build_output_dir_path(
                 output_root_path, dataset_name, model_suffix, cfg_opt
             )
-            if rm_existing_output and os.path.exists(output_dir_path):
-                shutil.rmtree(output_dir_path)
 
             cmd = build_run_test_cmd(
                 config_file_path, model_file_path, dataset_name, data_subset,
@@ -123,7 +119,7 @@ def main(param_json_file_path: click.Path) -> int:
         print(cmd_str + "\n")
 
         # print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
-        # subprocess.call(cmd)
+        # subprocess.call(cmd, text=True, shell=True)
     
     return 0
 
