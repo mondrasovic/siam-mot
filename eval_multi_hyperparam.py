@@ -58,7 +58,7 @@ def build_run_test_cmd(
     cfg_opts: Iterable[CfgOptSpec]
 ):
     run_test_args = [
-        'python', '-m', 'tools.test_net',
+        'python3', '-m', 'tools.test_net',
         '--config-file', config_file_path,
         '--model-file', model_file_path,
         '--test-dataset', dataset_name,
@@ -123,9 +123,10 @@ def main(param_json_file_path: click.Path) -> int:
         output_root_path, csv_file_name, model_suffixes, cfg_opts
     ):
         cmd_str = " ".join(cmd)
-        print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
-
-        subprocess.call(cmd, text=True, shell=True)
+        print(cmd_str + "\n")
+        
+        # print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
+        # subprocess.call(cmd)
     
     return 0
 
