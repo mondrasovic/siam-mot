@@ -92,7 +92,7 @@ cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION = 0.8
 cfg.MODEL.TRACK_HEAD.EMM.COSINE_WINDOW_WEIGHT = 0.4
 
 # Feature embedding loss (empty, 'contrastive' or 'triplet')
-cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS = ''
+cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS = 'none'
 
 # all video-related parameters
 cfg.VIDEO = CN()

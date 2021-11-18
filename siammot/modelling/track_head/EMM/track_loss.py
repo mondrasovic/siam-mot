@@ -301,9 +301,9 @@ class EMMLossComputation(object):
         self.centerness_loss_func = nn.BCEWithLogitsLoss()
 
         feature_emb_loss_name = cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS
-        if feature_emb_loss_name == '':
+        if feature_emb_loss_name == 'none':
             self.emb_loss_func = None
-        if feature_emb_loss_name == 'contrastive':
+        elif feature_emb_loss_name == 'contrastive':
             self.emb_loss_func = BalancedMarginContrastiveLoss()
         elif feature_emb_loss_name == 'triplet':
             self.emb_loss_func = SemiHardTripletLoss()
