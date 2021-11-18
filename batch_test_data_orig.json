@@ -6,7 +6,7 @@
     "output_root_path": "./eval",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
-        "0050000", "0040000"
+        "0040000"
     ],
     "cfg_opts_groups": [
         [
