@@ -53,7 +53,7 @@ def build_run_test_cmd(
     model_file_path: str,
     dataset_name: str,
     data_subset: str,
-    csv_file_path: str,
+    csv_file_name: str,
     output_dir_path: str,
     cfg_opts: Iterable[CfgOptSpec]
 ):
@@ -63,7 +63,7 @@ def build_run_test_cmd(
         '--model-file', model_file_path,
         '--test-dataset', dataset_name,
         '--set', data_subset,
-        '--eval-csv-file', csv_file_path,
+        '--eval-csv-file', csv_file_name,
         '--output-dir', output_dir_path,
     ]
     for cfg_opt in cfg_opts:
@@ -92,13 +92,10 @@ def iter_cmd_args(
             )
             if rm_existing_output and os.path.exists(output_dir_path):
                 shutil.rmtree(output_dir_path)
-            
-            csv_file_path = os.path.join(output_dir_path, csv_file_name)
-            csv_file_path = normalize_path(csv_file_path)
 
             cmd = build_run_test_cmd(
                 config_file_path, model_file_path, dataset_name, data_subset,
-                csv_file_path, output_dir_path, cfg_opt
+                csv_file_name, output_dir_path, cfg_opt
             )
             yield cmd
 
@@ -124,7 +121,7 @@ def main(param_json_file_path: click.Path) -> int:
     ):
         cmd_str = " ".join(cmd)
         print(cmd_str + "\n")
-        
+
         # print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
         # subprocess.call(cmd)
     
