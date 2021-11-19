@@ -37,7 +37,10 @@ parser.add_argument(
     help="model suffix to differentiate different runs", type=str
 )
 parser.add_argument("--local_rank", type=int, default=0)
-
+parser.add_argument(
+    'opts', help="overwriting the training config from commandline",
+    default=None, nargs=argparse.REMAINDER
+)
 
 def train(cfg, train_dir, local_rank, distributed, logger):
     # build model
@@ -134,6 +137,7 @@ def main():
     args = parser.parse_args()
     
     cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
     cfg.freeze()
     
     train_dir, logger = setup_env_and_logger(args, cfg)

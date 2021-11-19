@@ -11,6 +11,8 @@ from maskrcnn_benchmark.layers import nms as _box_nms
 from yacs.config import CfgNode
 from scipy.optimize import linear_sum_assignment
 
+from siammot.modelling.track_head.EMM.track_loss import features_to_emb
+from siammot.modelling.track_head.track_head import TrackHead
 from siammot.modelling.track_head.track_utils import TrackPool
 from siammot.modelling.reid.reid_man import (
     ReIdManager, build_or_get_existing_reid_manager
@@ -50,9 +52,9 @@ def cos_sim_matrix(
 def boxlist_feature_nms(
     boxes: BoxList,
     embs: torch.Tensor,
-    iou_thresh_1: float = 0.1,
-    iou_thresh_2: float = 0.9,
-    cos_sim_thresh: float = 0.4,
+    iou_thresh_1: float = 0.4,
+    iou_thresh_2: float = 0.8,
+    cos_sim_thresh: float = 0.6,
     score_field: str = 'scores'
 ) -> BoxList:
     assert len(boxes) == len(embs)
@@ -165,7 +167,7 @@ class TrackSolverOrig(TrackSolver):
             nms_thresh, add_debug
         )
     
-    def forward(self, detection: List[BoxList]):
+    def forward(self, detection: List[BoxList], features=None):
         """
         The solver is to merge predictions from detection branch as well as
         from track branch.
@@ -271,7 +273,7 @@ class TrackSolverReid(TrackSolver):
         self.reid_man: ReIdManager = reid_man
         self.sim_thresh: float = sim_thresh
 
-    def forward(self, detections: List[BoxList]):
+    def forward(self, detections: List[BoxList], features=None):
         """
         The solver is to merge predictions from the detection branch as well as
         from the track branch. The goal is to assign a unique track ID to
@@ -407,27 +409,30 @@ class TrackSolverReid(TrackSolver):
         return cos_sim_matrix, row_idxs, col_idxs
     
 
-class TrackSolverReid2(TrackSolver):
+class TrackSolverFeatureEmb(TrackSolver):
     def __init__(
         self,
         track_pool: TrackPool,
-        reid_man: ReIdManager,
+        track_head: TrackHead,
         track_thresh: float = 0.3,
         start_track_thresh: float = 0.5,
         resume_track_thresh: float = 0.4,
-        nms_thresh: float = 0.5,
-        sim_thresh: float = 0.4,
+        iou_thresh_1: float = 0.4,
+        iou_thresh_2: float = 0.8,
+        cos_sim_thresh: float = 0.6,
         add_debug: bool = False
     ) -> None:
         super().__init__(
             track_pool, track_thresh, start_track_thresh, resume_track_thresh,
-            nms_thresh, add_debug
+            -1, add_debug
         )
-        
-        self.reid_man: ReIdManager = reid_man
-        self.sim_thresh: float = sim_thresh
 
-    def forward(self, detections: List[BoxList]):
+        self.track_head: TrackHead = track_head
+        self.iou_thresh_1: float = iou_thresh_1
+        self.iou_thresh_2: float = iou_thresh_2
+        self.cos_sim_thresh: float = cos_sim_thresh
+
+    def forward(self, detections: List[BoxList], features):
         """
         The solver is to merge predictions from the detection branch as well as
         from the track branch. The goal is to assign a unique track ID to
@@ -445,10 +450,6 @@ class TrackSolverReid2(TrackSolver):
         if len(detections) == 0:
             return [detections]
         
-        iou_thresh_1 = 0.4
-        iou_thresh_2 = 0.8
-        cos_sim_thresh = 0.6
-
         self._add_debug('input', detections)
 
         track_pool = self.track_pool
@@ -469,20 +470,18 @@ class TrackSolverReid2(TrackSolver):
         # By doing this, dormant tracks will be merged to active tracks
         # during nms if they highly overlap
         all_scores[active_mask] += 1.
-        
-        current_frame_idx = self.track_pool.frame_idx
-        frame_idxs = [current_frame_idx] * len(detections)
-        detections_xyxy = detections.convert('xyxy')
-        embs = self.reid_man.calc_embeddings(frame_idxs, detections_xyxy)
+
+        embs = self._get_detections_embeddings(detections, features)
         nms_detection = boxlist_feature_nms(
-            detections_xyxy, embs, iou_thresh_1, iou_thresh_2, cos_sim_thresh
+            detections, embs, self.iou_thresh_1, self.iou_thresh_2,
+            self.cos_sim_thresh
         )
         
         _ids = nms_detection.get_field('ids')
         _scores = nms_detection.get_field('scores')
         
-        _scores[_scores >= 2.] = _scores[_scores >= 2.] - 2.
-        _scores[_scores >= 1.] = _scores[_scores >= 1.] - 1.
+        _scores[_scores >= 2.] -= 2
+        _scores[_scores >= 1.] -= 1
 
         self._add_debug('after NMS', nms_detection)
 
@@ -528,28 +527,81 @@ class TrackSolverReid2(TrackSolver):
         track_pool.increment_frame()
         
         return [combined_detection]
+    
+    def _get_detections_embeddings(
+        self,
+        detections: BoxList,
+        features
+    ) -> torch.Tensor:
+        cache = self.track_pool.get_cache()
+
+        ids = detections.get_field('ids')
+        new_detections = detections[ids < 0]
+        new_detections_template_features = (
+            self.track_head.extract_template_features(
+                features, new_detections
+            )
+        )
+        
+        template_features_combined = []
+        new_detections_idx = 0
+        for id_ in ids.tolist():
+            if id_ >= 0:
+                template_features = cache[id_][0]
+            else:
+                template_features = (
+                    new_detections_template_features[new_detections_idx]
+                )
+                new_detections_idx += 1
+            
+            if template_features.ndim == 3:
+                template_features = torch.unsqueeze(template_features, dim=0)
+            template_features_combined.append(template_features)
+        
+        template_features_combined = torch.cat(
+            template_features_combined, dim=0
+        )
+        embs = features_to_emb(template_features_combined) 
+
+        return embs
 
 
-
-def build_track_solver(cfg: CfgNode, track_pool: TrackPool) -> TrackSolver:
+def build_track_solver(
+    cfg: CfgNode,
+    track_pool: TrackPool,
+    track_head: TrackHead
+) -> TrackSolver:
     track_thresh = cfg.MODEL.TRACK_HEAD.TRACK_THRESH
     start_track_thresh = cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH
     resume_track_thresh = cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH
     nms_thresh = cfg.MODEL.TRACK_HEAD.NMS_THRESH
-    use_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
+    add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
 
-    if cfg.MODEL.TRACK_HEAD.USE_REID:
+    solver_type = cfg.MODEL.TRACK_HEAD.SOLVER_TYPE
+    if solver_type == 'ext_reid':
         reid_man = build_or_get_existing_reid_manager(cfg)
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
 
         track_solver = TrackSolverReid(
             track_pool, reid_man, track_thresh, start_track_thresh,
-            resume_track_thresh, nms_thresh, cos_sim_thresh, use_debug
+            resume_track_thresh, nms_thresh, cos_sim_thresh, add_debug
         )
-    else:
+    elif solver_type == 'feature_emb':
+        iou_thresh_1 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_1
+        iou_thresh_2 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_2
+        cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
+
+        track_solver = TrackSolverFeatureEmb(
+            track_pool, track_head, track_thresh, start_track_thresh, 
+            resume_track_thresh, iou_thresh_1, iou_thresh_2, cos_sim_thresh, 
+            add_debug
+        )
+    elif solver_type == 'original':
         track_solver = TrackSolverOrig(
             track_pool, track_thresh, start_track_thresh, resume_track_thresh,
-            nms_thresh, use_debug
+            nms_thresh, add_debug
         )
+    else:
+        raise ValueError('unrecognized solver type')
 
     return track_solver
