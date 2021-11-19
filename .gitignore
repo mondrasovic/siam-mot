@@ -6,7 +6,6 @@ sandbox
 *.ods#
 
 *.pdf
-*.csv
 
 track_solver_debug_*
 
