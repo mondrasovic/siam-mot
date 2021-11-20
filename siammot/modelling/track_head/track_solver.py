@@ -409,7 +409,7 @@ class TrackSolverReid(TrackSolver):
         return cos_sim_matrix, row_idxs, col_idxs
     
 
-class TrackSolverFeatureEmb(TrackSolver):
+class TrackSolverFeatureNMS(TrackSolver):
     def __init__(
         self,
         track_pool: TrackPool,
@@ -586,12 +586,12 @@ def build_track_solver(
             track_pool, reid_man, track_thresh, start_track_thresh,
             resume_track_thresh, nms_thresh, cos_sim_thresh, add_debug
         )
-    elif solver_type == 'feature_emb':
+    elif solver_type == 'feature_nms':
         iou_thresh_1 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_1
         iou_thresh_2 = cfg.MODEL.TRACK_HEAD.IOU_THRESH_2
         cos_sim_thresh = cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH
 
-        track_solver = TrackSolverFeatureEmb(
+        track_solver = TrackSolverFeatureNMS(
             track_pool, track_head, track_thresh, start_track_thresh, 
             resume_track_thresh, iou_thresh_1, iou_thresh_2, cos_sim_thresh, 
             add_debug

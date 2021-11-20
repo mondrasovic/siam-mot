@@ -2,16 +2,15 @@ import os
 import sys
 import json
 import click
+import pathlib
 import dataclasses
-import subprocess
 
-from typing import Iterable, List
+from typing import Iterable, List, Dict, Optional
 
 
 @dataclasses.dataclass(frozen=True)
 class CfgOptSpec:
     name: str
-    alias: str
     val: str
 
 
@@ -29,20 +28,24 @@ def build_model_path(train_dir_path: str, model_suffix: str) -> str:
 
 def build_output_dir_path(
     output_root_path: str, dataset_name: str, model_suffix: str,
-    cfg_opts: Iterable[str]
+    cfg_opts: Iterable[CfgOptSpec], cfg_val_map: Optional[Dict[str, str]] = None
 ) -> str:
     if dataset_name == 'UA_DETRAC':
         dataset_shortcut = 'uadt'
     else:
         raise ValueError('unrecognized dataset name')
-    
-    tokens = [dataset_shortcut]
-    tokens.extend(f'{c.alias}-{c.val}' for c in cfg_opts)
-    tokens.append(model_suffix)
 
-    output_dir_name = '_'.join(tokens)
-    output_dir_path = os.path.join(output_root_path, output_dir_name)
-    output_dir_path = normalize_path(output_dir_path)
+    output_dir = pathlib.Path(output_root_path)
+    output_dir /= dataset_shortcut
+    for cfg_opt in cfg_opts:
+        if cfg_val_map:
+            dir_name = cfg_val_map.get(cfg_opt.val, cfg_opt.val)
+        else:
+            dir_name = cfg_opt.val
+        output_dir /= dir_name
+    output_dir /= model_suffix
+
+    output_dir_path = normalize_path(str(output_dir))
 
     return output_dir_path
 
@@ -80,13 +83,15 @@ def iter_cmd_args(
     output_root_path: str,
     csv_file_name: str,
     model_suffixes: Iterable[str],
-    cfg_opts: Iterable[CfgOptSpec]
+    cfg_opts: Iterable[CfgOptSpec],
+    cfg_val_map: Optional[Dict[str, str]] = None
 ) -> List[str]:
     for model_suffix in model_suffixes:
         for cfg_opt in cfg_opts:
             model_file_path = build_model_path(train_dir_path, model_suffix)
             output_dir_path = build_output_dir_path(
-                output_root_path, dataset_name, model_suffix, cfg_opt
+                output_root_path, dataset_name, model_suffix, cfg_opt,
+                cfg_val_map
             )
 
             cmd = build_run_test_cmd(
@@ -110,16 +115,14 @@ def main(param_json_file_path: click.Path) -> int:
     csv_file_name = params['csv_file_name']
     model_suffixes = params['model_suffixes']
     cfg_opts = [[CfgOptSpec(*c) for c in g] for g in params['cfg_opts_groups']]
+    cfg_val_map = params.get('cfg_val_map')
 
     for cmd in iter_cmd_args(
         train_dir_path, config_file_path, dataset_name, data_subset,
-        output_root_path, csv_file_name, model_suffixes, cfg_opts
+        output_root_path, csv_file_name, model_suffixes, cfg_opts, cfg_val_map
     ):
         cmd_str = " ".join(cmd)
         print(cmd_str + "\n")
-
-        # print(f"Running command:\n{cmd_str}\n{'-' * 80}\n")
-        # subprocess.call(cmd, text=True, shell=True)
     
     return 0
 

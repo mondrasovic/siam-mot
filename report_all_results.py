@@ -29,9 +29,23 @@ def build_latex_table_doc(results_file):
         }, inplace=True
     )
 
-    tokens = results_file.parent.parent.stem.split('_')
-    tokens = (t.replace('-', ' - ') for t in tokens)
-    caption = f'Siam-MOT Evaluation Report --- {", ".join(tokens)}'
+    model_dir = results_file.parent.parent
+    solver_dir = model_dir.parent
+    loss_dir = solver_dir.parent
+    dataset_dir = loss_dir.parent
+
+    model = model_dir.stem
+    solver = {'orig': 'Original', 'fNMS': 'Feature-NMS'}[solver_dir.stem]
+    loss = {'none': 'None', 'contr': 'Contrastive', 'tripl': 'Triplet'}[
+        loss_dir.stem
+    ]
+    dataset = {'uadt': 'UA-DETRAC'}[dataset_dir.stem]
+
+    caption = (
+        'Siam-MOT Evaluation Report --- ' +
+        f'Dataset: {dataset}, Embedding Loss: {loss}, ' +
+        f'Solver: {solver}, Model: {model}'
+    )
     table = df.to_latex(bold_rows=True, caption=caption)
     content = r'''\documentclass{article}
 
@@ -39,6 +53,7 @@ def build_latex_table_doc(results_file):
 
 \usepackage[utf8]{inputenc}
 \usepackage{booktabs}
+\usepackage[labelfont=bf]{caption}
 
 \pagenumbering{gobble}
 

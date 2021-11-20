@@ -6,13 +6,18 @@
     "output_root_path": "./eval",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
-        "0050000", "0040000", "0060000", "0070000", "0080000", "final",
+        "0050000", "0040000", "0060000", "0070000", "0080000", "0090000",
         "0030000"
     ],
     "cfg_opts_groups": [
         [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "loss", "contrastive"],
-            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "slr", "feature_emb"]
+            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "contrastive"],
+            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "original"]
         ]
-    ]
+    ],
+    "cfg_val_map": {
+        "contrastive": "contr",
+        "feature_nms": "fNMS",
+        "original": "orig"
+    }
 }
