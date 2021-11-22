@@ -10,6 +10,7 @@ from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
 from .track_loss import EMMLossComputation
 from .xcorr import xcorr_depthwise
+from .feature_emb import FeatureEmbHead
 
 
 @registry.SIAMESE_TRACKER.register("EMM")
@@ -18,6 +19,12 @@ class EMM(torch.nn.Module):
         super(EMM, self).__init__()
         self.feature_extractor = EMMFeatureExtractor(cfg)
         self.predictor = EMMPredictor(cfg)
+        if cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS == 'none':
+            self.feature_emb = None
+        else:
+            self.feature_emb = FeatureEmbHead(
+                cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
+            )
         self.loss = EMMLossComputation(cfg)
         
         self.track_utils = track_utils
@@ -62,11 +69,16 @@ class EMM(torch.nn.Module):
             )
             src_bboxes = cat([b.bbox for b in boxes], dim=0)
             gt_bboxes = cat([b.bbox for b in targets], dim=0)
-            ids = cat([b.get_field('ids') for b in boxes])
+
+            if self.feature_emb is None:
+                embs = ids = None
+            else:
+                embs = self.feature_emb(template_features)
+                ids = cat([b.get_field('ids') for b in boxes])
 
             cls_loss, reg_loss, centerness_loss, emb_loss = self.loss(
                 locations, cls_logits, reg_logits, center_logits, src_bboxes,
-                gt_bboxes, template_features, ids
+                gt_bboxes, embs, ids
             )
             
             loss = dict(
@@ -123,6 +135,7 @@ class EMM(torch.nn.Module):
         return cache
     
     def extract_template_features(self, features, detection):
+        # TODO Rename this and add extraxting feature embeddings directly.
         detection = [detection]
         x = self.feature_extractor(features, detection)
         return x

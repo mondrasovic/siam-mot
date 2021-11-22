@@ -382,10 +382,8 @@ class EMMLossComputation(object):
     
     def __call__(
         self, locations, box_cls, box_regression, centerness, src, targets,
-        template_features, ids
+        embs=None, ids=None
     ):
-        device = template_features.device
-
         cls_labels, reg_targets = self.prepare_targets(locations, src, targets)
         
         box_regression = (
@@ -404,7 +402,7 @@ class EMMLossComputation(object):
         box_cls = log_softmax(box_cls)
         cls_loss = select_cross_entropy_loss(box_cls, cls_labels_flatten)
         
-        emb_loss = torch.tensor(0., device=device)
+        emb_loss = torch.tensor(0., device=cls_labels.device)
 
         if in_box_inds.numel() > 0:
             centerness_targets = self.compute_centerness_targets(
@@ -422,7 +420,6 @@ class EMMLossComputation(object):
 
             if self.emb_loss_func is not None:
                 valid_mask = (ids >= 0)
-                embs = features_to_emb(template_features[valid_mask])
                 emb_loss = self.emb_loss_func(embs, ids[valid_mask])
         else:
             reg_loss = 0. * box_regression_flatten.sum()
