@@ -116,6 +116,9 @@ class TrackHead(torch.nn.Module):
     def extract_template_features(self, features, detection):
         return self.tracker.extract_template_features(features, detection)
     
+    def features_to_embeddings(self, template_features):
+        return self.tracker.features_to_embeddings(template_features)
+    
     def _update_memory_with_dormant_track(
         self,
         track_memory: Tuple[Tensor, List[BoxList], List[BoxList]]

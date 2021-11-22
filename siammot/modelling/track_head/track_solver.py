@@ -561,7 +561,9 @@ class TrackSolverFeatureNMS(TrackSolver):
         template_features_combined = torch.cat(
             template_features_combined, dim=0
         )
-        embs = features_to_emb(template_features_combined) 
+        embs = self.track_head.features_to_embeddings(
+            template_features_combined
+        ) 
 
         return embs
 

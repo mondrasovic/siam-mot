@@ -135,10 +135,13 @@ class EMM(torch.nn.Module):
         return cache
     
     def extract_template_features(self, features, detection):
-        # TODO Rename this and add extraxting feature embeddings directly.
         detection = [detection]
         x = self.feature_extractor(features, detection)
         return x
+    
+    def features_to_embeddings(self, template_features):
+        embs = self.feature_emb(template_features)
+        return embs
 
 
 def decode_response(
