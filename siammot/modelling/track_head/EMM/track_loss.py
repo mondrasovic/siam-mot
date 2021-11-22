@@ -420,7 +420,7 @@ class EMMLossComputation(object):
 
             if self.emb_loss_func is not None:
                 valid_mask = (ids >= 0)
-                emb_loss = self.emb_loss_func(embs, ids[valid_mask])
+                emb_loss = self.emb_loss_func(embs[valid_mask], ids[valid_mask])
         else:
             reg_loss = 0. * box_regression_flatten.sum()
             centerness_loss = 0. * centerness_flatten.sum()
