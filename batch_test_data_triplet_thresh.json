@@ -3,7 +3,7 @@
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
-    "output_root_path": "./eval_cossim",
+    "output_root_path": "./eval_iout1",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0040000"
@@ -12,32 +12,20 @@
         [
             ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
             ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.4"]
+            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.4"],
+            ["MODEL.TRACK_HEAD.IOU_THRESH_1", "0.3"]
         ],
         [
             ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
             ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.5"]
+            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.4"],
+            ["MODEL.TRACK_HEAD.IOU_THRESH_1", "0.2"]
         ],
         [
             ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
             ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.6"]
-        ],
-        [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
-            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.7"]
-        ],
-        [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
-            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.8"]
-        ],
-        [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
-            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"],
-            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.9"]
+            ["MODEL.TRACK_HEAD.COS_SIM_THRESH", "0.4"],
+            ["MODEL.TRACK_HEAD.IOU_THRESH_1", "0.1"]
         ]
     ],
     "cfg_val_map": {
@@ -45,10 +33,8 @@
         "feature_nms": "fNMS",
         "original": "orig",
         "0.4": "cossim_04",
-        "0.5": "cossim_05",
-        "0.6": "cossim_06",
-        "0.7": "cossim_07",
-        "0.8": "cossim_08",
-        "0.9": "cossim_09"
+        "0.3": "iout1_03",
+        "0.2": "iout1_02",
+        "0.1": "iout1_01"
     }
 }

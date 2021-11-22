@@ -5,7 +5,9 @@ import click
 import pathlib
 import dataclasses
 
-from typing import Iterable, List, Dict, Optional
+import numpy as np
+
+from typing import DefaultDict, Iterable, List, Dict, Optional, Tuple
 
 
 @dataclasses.dataclass(frozen=True)
@@ -85,7 +87,7 @@ def iter_cmd_args(
     model_suffixes: Iterable[str],
     cfg_opts: Iterable[CfgOptSpec],
     cfg_val_map: Optional[Dict[str, str]] = None
-) -> List[str]:
+) -> str:
     for model_suffix in model_suffixes:
         for cfg_opt in cfg_opts:
             model_file_path = build_model_path(train_dir_path, model_suffix)
@@ -98,12 +100,24 @@ def iter_cmd_args(
                 config_file_path, model_file_path, dataset_name, data_subset,
                 csv_file_name, output_dir_path, cfg_opt
             )
-            yield cmd
+            yield ' '.join(cmd)
 
 
 @click.command()
 @click.argument('param_json_file_path', type=click.Path(exists=True))
-def main(param_json_file_path: click.Path) -> int:
+@click.option(
+    '-n', '--n-out-files', type=int, default=2, show_default=True,
+    help="Number of output files."
+)
+@click.option(
+    '-f', '--file-name-format', default='_run_eval_{}.sh', show_default=True,
+    help="Script file name format."
+)
+def main(
+    param_json_file_path: click.Path,
+    n_out_files: int,
+    file_name_format: str
+) -> int:
     with open(param_json_file_path, 'rt') as file_handle:
         params = json.load(file_handle)
     
@@ -117,13 +131,22 @@ def main(param_json_file_path: click.Path) -> int:
     cfg_opts = [[CfgOptSpec(*c) for c in g] for g in params['cfg_opts_groups']]
     cfg_val_map = params.get('cfg_val_map')
 
-    for cmd in iter_cmd_args(
+    cmds = tuple(iter_cmd_args(
         train_dir_path, config_file_path, dataset_name, data_subset,
         output_root_path, csv_file_name, model_suffixes, cfg_opts, cfg_val_map
-    ):
-        cmd_str = " ".join(cmd)
-        print(cmd_str + "\n")
-    
+    ))
+
+    if n_out_files <= 0:
+        print("\n\n".join(cmds))
+    else:
+        n_cmds = len(cmds)
+        n_out_files = min(n_out_files, n_cmds)
+        idxs = np.linspace(0, n_cmds + 1, n_out_files + 1).astype(np.int)
+
+        for i, (start, end) in enumerate(zip(idxs[:-1], idxs[1:]), start=1):
+            with open(file_name_format.format(i), 'wt') as out_file:
+                out_file.write("\n\n".join(cmds[start:end]) + "\n")
+        
     return 0
 
 
