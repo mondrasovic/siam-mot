@@ -88,8 +88,8 @@ def iter_cmd_args(
     cfg_opts: Iterable[CfgOptSpec],
     cfg_val_map: Optional[Dict[str, str]] = None
 ) -> str:
-    for model_suffix in model_suffixes:
-        for cfg_opt in cfg_opts:
+    for cfg_opt in cfg_opts:
+        for model_suffix in model_suffixes:
             model_file_path = build_model_path(train_dir_path, model_suffix)
             output_dir_path = build_output_dir_path(
                 output_root_path, dataset_name, model_suffix, cfg_opt,
@@ -106,11 +106,11 @@ def iter_cmd_args(
 @click.command()
 @click.argument('param_json_file_path', type=click.Path(exists=True))
 @click.option(
-    '-n', '--n-out-files', type=int, default=2, show_default=True,
+    '-n', '--n-out-files', type=int, default=3, show_default=True,
     help="Number of output files."
 )
 @click.option(
-    '-f', '--file-name-format', default='_run_eval_{}.sh', show_default=True,
+    '-f', '--file-name-format', default='run_eval_{}.sh', show_default=True,
     help="Script file name format."
 )
 def main(
@@ -136,9 +136,9 @@ def main(
         output_root_path, csv_file_name, model_suffixes, cfg_opts, cfg_val_map
     ))
 
-    if n_out_files <= 0:
-        print("\n\n".join(cmds))
-    else:
+    print("\n\n".join(cmds))
+
+    if n_out_files > 0:
         n_cmds = len(cmds)
         n_out_files = min(n_out_files, n_cmds)
         idxs = np.linspace(0, n_cmds + 1, n_out_files + 1).astype(np.int)
