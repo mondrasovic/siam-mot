@@ -7,7 +7,7 @@ import dataclasses
 
 import numpy as np
 
-from typing import DefaultDict, Iterable, List, Dict, Optional, Tuple
+from typing import DefaultDict, Iterable, List, Dict, Optional
 
 
 @dataclasses.dataclass(frozen=True)
