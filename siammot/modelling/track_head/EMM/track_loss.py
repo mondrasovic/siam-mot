@@ -111,7 +111,7 @@ def _get_anchor_positive_mask(labels: torch.Tensor) -> torch.Tensor:
         labels (torch.Tensor): Labels of shape [B,].
 
     Returns:
-        torch.Tensor: 2D boolean mask of shape[B,B].
+        torch.Tensor: 2D boolean mask of shape [B,B].
     """
     labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
     idxs_neq_mask = ~torch.eye(
@@ -130,32 +130,101 @@ def _get_anchor_negative_mask(labels: torch.Tensor) -> torch.Tensor:
         labels (torch.Tensor): Labels of shape [B,].
 
     Returns:
-        torch.Tensor: 2D boolean mask of shape[B,B].
+        torch.Tensor: 2D boolean mask of shape [B,B].
     """
     anchor_negative_mask = (labels[..., None] != labels[None, ...])  # [B,B]
 
     return anchor_negative_mask
 
 
-# def get_triplet_mask(labels: torch.Tensor) -> torch.Tensor:
-#     idxs_neq_mask = ~torch.eye(len(labels), dtype=torch.bool)  # [B,B]
-#     idx_i_neq_j_mask = torch.unsqueeze(idxs_neq_mask, dim=2)  # [B,B,1]
-#     idx_i_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=1)  # [B,1,B]
-#     idx_j_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=0)  # [1,B,B]
-#     triplet_idxs_neq_mask = (
-#         idx_i_neq_j_mask & idx_i_neq_k_mask & idx_j_neq_k_mask  # [B,B,B]
-#     )
+def _get_triplet_mask(labels: torch.Tensor) -> torch.Tensor:
+    """Generates a 3D mask where M[a,p,n] is True iff anchor (a) and positive(p)
+    are distinct objects but have the same class, whereas anchor (a) and
+    negative (p) are also distinct objects but of different class.
 
-#     labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
-#     label_i_eq_j = torch.unsqueeze(labels_eq_mask, dim=2)  # [B,B,1]
-#     label_i_neq_k = ~torch.unsqueeze(labels_eq_mask, dim=1)  # [B,1,B]
-#     triplet_labels_valid_mask = (label_i_eq_j & label_i_neq_k)  # [B,B,B]
+    Args:
+        labels (torch.Tensor): Labels of shape [B,].
 
-#     triplet_mask = (
-#         triplet_idxs_neq_mask & triplet_labels_valid_mask  # [B,B,B]
-#     )
+    Returns:
+        torch.Tensor: 3D boolean mask of shape [B,B,B].
+    """
+    idxs_neq_mask = ~torch.eye(
+        len(labels), dtype=torch.bool, device=labels.device
+    )  # [B,B]
+    idx_i_neq_j_mask = torch.unsqueeze(idxs_neq_mask, dim=2)  # [B,B,1]
+    idx_i_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=1)  # [B,1,B]
+    idx_j_neq_k_mask = torch.unsqueeze(idxs_neq_mask, dim=0)  # [1,B,B]
+    triplet_idxs_neq_mask = (
+        idx_i_neq_j_mask & idx_i_neq_k_mask & idx_j_neq_k_mask
+    )  # [B,B,B]
 
-#     return triplet_mask
+    labels_eq_mask = (labels[..., None] == labels[None, ...])  # [B,B]
+    label_i_eq_j = torch.unsqueeze(labels_eq_mask, dim=2)  # [B,B,1]
+    label_i_neq_k = ~torch.unsqueeze(labels_eq_mask, dim=1)  # [B,1,B]
+    triplet_labels_valid_mask = (label_i_eq_j & label_i_neq_k)  # [B,B,B]
+
+    triplet_mask = (
+        triplet_idxs_neq_mask & triplet_labels_valid_mask
+    )  # [B,B,B]
+
+    return triplet_mask
+
+
+class BatchAllTripletLoss(nn.Module):
+    """Triplet loss with 'batch all' mining strategy."""
+
+    def __init__(self, margin: float = 1.0, squared: bool = True) -> None:
+        """Constructor.
+
+        Args:
+            margin (float, optional): Margin of separation between positive and
+            negative samples. Defaults to 1.0.
+            squared (bool, optional): If True, the  the pairwise squared L2
+            distance is used, if False, then standard L2 distance is computed.
+            Defaults to True.
+        """
+        super().__init__()
+
+        self.margin: float = margin
+        self.squared: bool = squared
+    
+    def forward(self, embs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """Generates all possible valid triplets but computes the loss over the
+        positive ones in terms of the loss function value.
+
+        Args:
+            embs (torch.Tensor): Embeddings of shape [B,E].
+            labels (torch.Tensor): Labels of shape [B,].
+
+        Returns:
+            torch.Tensor: Triplet loss scalar.
+        """
+        pairwise_dist = _pairwise_l2_dist(embs, squared=self.squared)  # [B,B]
+
+        anchor_positive_dist = torch.unsqueeze(pairwise_dist, dim=2)  # [B,B,1]
+        anchor_negative_dist = torch.unsqueeze(pairwise_dist, dim=1)  # [B,1,B]
+
+        triplet_loss = (
+            anchor_positive_dist - anchor_negative_dist + self.margin
+        )  # [B,B,B]
+
+        # Put zero to invalid triplets.
+        mask = _get_triplet_mask(labels)  # [B,B,B]
+        triplet_loss *= mask.float()  # [B,B,B]
+
+        # Remove triplets that incurred negative loss, i.e., were too easy.
+        triplet_loss = torch.clamp(triplet_loss, min=0)  # [B,B,B]
+
+        eps = 1e-16
+        loss_positive_triplets_mask = triplet_loss > eps  # [B,B,B]
+        n_loss_positive_triplets = torch.sum(loss_positive_triplets_mask)  # [c]
+
+        triplet_loss = (
+            torch.sum(triplet_loss) / (n_loss_positive_triplets + eps)
+        )  # [c]
+
+        return triplet_loss
+
 
 class SemiHardTripletLoss(nn.Module):
     """Triplet loss with hard negative mining."""
@@ -189,7 +258,7 @@ class SemiHardTripletLoss(nn.Module):
         Returns:
             torch.Tensor: Triplet loss scalar.
         """
-        pairwise_dist = _pairwise_l2_dist(embs, squared=self.squared)
+        pairwise_dist = _pairwise_l2_dist(embs, squared=self.squared)  # [B,B]
 
         anchor_positive_mask = _get_anchor_positive_mask(
             labels
@@ -308,7 +377,7 @@ class EMMLossComputation(object):
         elif feature_emb_loss_name == 'contrastive':
             self.emb_loss_func = BalancedMarginContrastiveLoss()
         elif feature_emb_loss_name == 'triplet':
-            self.emb_loss_func = SemiHardTripletLoss()
+            self.emb_loss_func = BatchAllTripletLoss()
         else:
             raise ValueError('unrecognized embedding loss function')
 
@@ -429,5 +498,5 @@ class EMMLossComputation(object):
             self.loss_weight * cls_loss,
             self.loss_weight * reg_loss,
             self.loss_weight * centerness_loss,
-            10 * self.loss_weight * emb_loss
+            self.loss_weight * emb_loss
         )
