@@ -140,11 +140,11 @@ class TrackSolver(torch.nn.Module, abc.ABC):
             build_or_get_existing_track_solver_debugger() if add_debug else None
         )
 
-    def _add_debug(self, stage, detections):
+    def _add_debug(self, stage, detections, metadata=None):
         if self.solver_debugger:
             self.solver_debugger.add_detections(
                 stage, detections, self.track_pool.get_active_ids(),
-                self.track_pool.get_dormant_ids()
+                self.track_pool.get_dormant_ids(), metadata=metadata
     )
 
     def _debug_save_frame(self):
@@ -450,8 +450,6 @@ class TrackSolverFeatureNMS(TrackSolver):
         if len(detections) == 0:
             return [detections]
         
-        self._add_debug('input', detections)
-
         track_pool = self.track_pool
         
         all_ids = detections.get_field('ids')
@@ -472,6 +470,8 @@ class TrackSolverFeatureNMS(TrackSolver):
         all_scores[active_mask] += 1.
 
         embs = self._get_detections_embeddings(detections, features)
+        embs_list = embs.detach().cpu().numpy().tolist()
+        self._add_debug('input', detections, metadata={'embeddings': embs_list})
         nms_detection = boxlist_feature_nms(
             detections, embs, self.iou_thresh_1, self.iou_thresh_2,
             self.cos_sim_thresh
