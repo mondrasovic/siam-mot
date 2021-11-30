@@ -25,14 +25,14 @@ class FeatureEmbHead(nn.Module):
     1D embedding vectors for subsequent re-identification (ReID) purposes.
     """
 
-    def __init__(self, n_feature_channels: int, n_emb_dim: int = 256) -> None:
+    def __init__(self, n_feature_channels: int, n_emb_dim: int = 1024) -> None:
         """Constructor.
 
         Args:
             n_feature_channels (int): Number of channels in the template
             (exemplar) features.
             n_emb_dim (int, optional): Number of embedding dimensions.
-            Defaults to 256.
+            Defaults to 1024.
         """
         super().__init__()
 
@@ -43,13 +43,8 @@ class FeatureEmbHead(nn.Module):
         self.flatten = Flatten()
 
         flatten_len = n_feature_channels * 11 * 11
-        hidden_layer_size = n_emb_dim * 2
 
-        self.dropout1 = nn.Dropout(0.2)
-        self.fc1 = nn.Linear(flatten_len, hidden_layer_size)
-        self.relu3 = nn.ReLU(inplace=True)
-        self.dropout2 = nn.Dropout(0.2)
-        self.fc2 = nn.Linear(hidden_layer_size, n_emb_dim)
+        self.fc1 = nn.Linear(flatten_len, n_emb_dim)
     
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Computes embedding vectors from tracker template (exemplar) features.
@@ -70,11 +65,7 @@ class FeatureEmbHead(nn.Module):
         x = self.conv2(x)  # [B,C,S - 4,S - 4]
         x = self.relu2(x)  # [B,C,S - 4,S - 4]
         x = self.flatten(x)  # [B,-1]
-        x = self.dropout1(x)
-        x = self.fc1(x)
-        x = self.relu3(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)  # [B,D]
+        x = self.fc1(x)  # [B,D]
 
         # L2 normalization - project the embedding onto a unit hypersphere.
         x = F.normalize(x, dim=1)  # [B,D]
