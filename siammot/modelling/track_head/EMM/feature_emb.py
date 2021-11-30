@@ -36,13 +36,15 @@ class FeatureEmbHead(nn.Module):
         """
         super().__init__()
 
-        self.conv1 = self._build_conv3x3(n_feature_channels)
+        n_hidden_channels = n_feature_channels * 2
+
+        self.conv1 = self._build_conv3x3(n_feature_channels, n_feature_channels)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv2 = self._build_conv3x3(n_feature_channels)
+        self.conv2 = self._build_conv3x3(n_feature_channels, n_hidden_channels)
         self.relu2 = nn.ReLU(inplace=True)
         self.flatten = Flatten()
 
-        flatten_len = n_feature_channels * 11 * 11
+        flatten_len = n_hidden_channels * 11 * 11
 
         self.fc1 = nn.Linear(flatten_len, n_emb_dim)
     
@@ -73,9 +75,9 @@ class FeatureEmbHead(nn.Module):
         return x
     
     @staticmethod
-    def _build_conv3x3(n_channels: int) -> nn.Module:
+    def _build_conv3x3(in_channels: int, out_channels: int) -> nn.Module:
         conv = nn.Conv2d(
-            in_channels=n_channels, out_channels=n_channels, kernel_size=3,
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3,
             bias=False
         )
         return conv
