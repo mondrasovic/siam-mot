@@ -1,12 +1,12 @@
 {
-    "train_dir_path": "./demos/models/uadt_emb_triplet_ga/DLA-34-FPN_box_EMM_UA_DETRAC_uadt_emb_triplet_ga",
+    "train_dir_path": "./demos/models/uadt_emb1024_tripletR_ga/DLA-34-FPN_box_EMM_UA_DETRAC_uadt_emb1024_tripletR_ga",
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
-    "output_root_path": "./eval_emb_ga",
+    "output_root_path": "./eval_emb1024R_ga",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
-        "0070000", "0080000", "0060000", "0050000"
+        "0070000", "0060000", "0050000", "0040000", "0030000"
     ],
     "cfg_opts_groups": [
         [

@@ -495,8 +495,8 @@ class EMMLossComputation(object):
             centerness_loss = 0. * centerness_flatten.sum()
         
         return (
-            self.loss_weight * cls_loss,
-            self.loss_weight * reg_loss,
-            self.loss_weight * centerness_loss,
-            self.loss_weight * emb_loss,
+            0.3166 * self.loss_weight * cls_loss,
+            0.3166 * self.loss_weight * reg_loss,
+            0.3166 * self.loss_weight * centerness_loss,
+            0.0500 * self.loss_weight * emb_loss,
         )
