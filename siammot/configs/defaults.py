@@ -2,6 +2,8 @@ from maskrcnn_benchmark.config import cfg
 from yacs.config import CfgNode as CN
 
 
+cfg.MODEL.TRAIN_EMB_FREEZE_REST = False
+
 # default detector config (Rewrite some of them in cfg)
 cfg.MODEL.META_ARCHITECTURE = 'GeneralizedRCNN'
 cfg.MODEL.BACKBONE.CONV_BODY = 'DLA-34-FPN'

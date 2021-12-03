@@ -30,6 +30,8 @@ MODEL:
   BOX_ON: True
   TRACK_ON: True
 
+  TRAIN_EMB_FREEZE_REST: False
+
   BACKBONE:
     CONV_BODY: "DLA-34-FPN"
   

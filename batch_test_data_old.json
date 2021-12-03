@@ -10,7 +10,11 @@
     ],
     "cfg_opts_groups": [
         [
-            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "none"],
+            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
+            ["MODEL.TRACK_HEAD.SOLVER_TYPE", "feature_nms"]
+        ],
+        [
+            ["MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS", "triplet"],
             ["MODEL.TRACK_HEAD.SOLVER_TYPE", "original"]
         ]
     ],
