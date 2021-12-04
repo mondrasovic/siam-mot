@@ -463,17 +463,17 @@ class EMMLossComputation(object):
         cls_labels_flatten = cls_labels.view(-1)
         centerness_flatten = centerness.view(-1)
         
-        in_box_inds = torch.nonzero(cls_labels_flatten > 0).squeeze(1)
-        box_regression_flatten = box_regression_flatten[in_box_inds]
-        reg_targets_flatten = reg_targets_flatten[in_box_inds]
-        centerness_flatten = centerness_flatten[in_box_inds]
+        in_box_idxs = torch.nonzero(cls_labels_flatten > 0).squeeze(1)
+        box_regression_flatten = box_regression_flatten[in_box_idxs]
+        reg_targets_flatten = reg_targets_flatten[in_box_idxs]
+        centerness_flatten = centerness_flatten[in_box_idxs]
         
         box_cls = log_softmax(box_cls)
         cls_loss = select_cross_entropy_loss(box_cls, cls_labels_flatten)
         
-        emb_loss = torch.tensor(0., device=cls_labels.device)
+        emb_loss = torch.tensor(0., device=cls_labels.device, requires_grad=True)
 
-        if in_box_inds.numel() > 0:
+        if in_box_idxs.numel() > 0:
             centerness_targets = self.compute_centerness_targets(
                 reg_targets_flatten
             )
