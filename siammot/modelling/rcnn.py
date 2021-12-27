@@ -54,6 +54,8 @@ class SiamMOT(nn.Module):
             raise ValueError("In training mode, targets should be passed")
         
         images = to_image_list(images)
+        # Tuple of features from each FPN level with shape [B, 128, H, W],
+        # where B is the batch size
         features = self.backbone(images.tensors)
         proposals, proposal_losses = self.rpn(images, features, targets)
         

@@ -82,6 +82,6 @@ def build_train_data_loader(cfg, is_distributed=False, start_iter=0):
     collator = VideoDatasetBatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY)
     data_loader = torch.utils.data.DataLoader(
         dataset, num_workers=num_workers,
-        batch_sampler=batch_sampler, collate_fn=collator
+        batch_sampler=batch_sampler, collate_fn=collator, pin_memory=True
     )
     return data_loader

@@ -37,7 +37,7 @@ class ROIBoxHead(torch.nn.Module):
     
     def forward(
         self,
-        features: [Tensor],
+        features: List[Tensor],
         proposals: List[BoxList],
         targets: Optional[List[BoxList]] = None
     ):

@@ -13,7 +13,7 @@ from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from siammot.configs.defaults import cfg
 from siammot.data.build_train_data_loader import build_train_data_loader
 from siammot.engine.tensorboard_writer import TensorboardWriter
-from siammot.engine.trainer import do_train
+from siammot.engine.trainer import do_train, do_train_old
 from siammot.modelling.rcnn import build_siammot
 from siammot.utils.get_model_name import get_model_name
 
@@ -123,7 +123,7 @@ def train(cfg, train_dir, local_rank, distributed, logger):
     gc.collect()
     torch.cuda.empty_cache()
     
-    do_train(
+    do_train_old(
         model, data_loader, optimizer, scheduler,
         checkpointer, device, checkpoint_period, arguments,
         logger, tensorboard_writer

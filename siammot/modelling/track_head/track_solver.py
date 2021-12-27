@@ -470,8 +470,9 @@ class TrackSolverFeatureNMS(TrackSolver):
         all_scores[active_mask] += 1.
 
         embs = self._get_detections_embeddings(detections, features)
-        embs_list = embs.detach().cpu().numpy().tolist()
-        self._add_debug('input', detections, metadata={'embeddings': embs_list})
+        # embs_list = embs.detach().cpu().numpy().tolist()
+        # self._add_debug('input', detections, metadata={'embeddings': embs_list})
+        self._add_debug('input', detections)
         nms_detection = boxlist_feature_nms(
             detections, embs, self.iou_thresh_1, self.iou_thresh_2,
             self.cos_sim_thresh
