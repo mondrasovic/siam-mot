@@ -11,7 +11,6 @@ class TrackUtils(object):
     """
     A class that includes utility functions unique to track branch
     """
-    
     def __init__(
         self,
         search_expansion: float = 1.0,
@@ -30,7 +29,7 @@ class TrackUtils(object):
         self.search_expansion: float = search_expansion
         self.min_search_wh: int = min_search_wh
         self.pad_pixels: int = pad_pixels
-    
+
     @staticmethod
     def swap_pairs(entity_list):
         assert len(entity_list) % 2 == 0
@@ -40,17 +39,16 @@ class TrackUtils(object):
             entity_list[xx], entity_list[xx + 1] = entity_list[xx + 1], \
                 entity_list[xx]
         return entity_list
-    
+
     @staticmethod
     def shuffle_feature(f):
         """
         odd-even order swap of the feature tensor in the batch dimension
         """
-        
         def shuffle_feature_tensor(x):
             batch_size = x.shape[0]
             assert batch_size % 2 == 0
-            
+
             # get channel swap order [1, 0, 3, 2, ...]
             odd_idx = range(1, batch_size, 2)
             even_idx = range(0, batch_size, 2)
@@ -58,9 +56,9 @@ class TrackUtils(object):
             idxs[even_idx] = idxs[even_idx] + 1
             idxs[odd_idx] = idxs[odd_idx] - 1
             idxs = torch.tensor(idxs)
-            
+
             return x[idxs]
-        
+
         if isinstance(f, tuple):
             shuffle_f = []
             for i, _f in enumerate(f):
@@ -68,9 +66,9 @@ class TrackUtils(object):
             shuffle_f = tuple(shuffle_f)
         else:
             shuffle_f = shuffle_feature_tensor(f)
-        
+
         return shuffle_f
-    
+
     def extend_bbox(self, in_box: List[BoxList]):
         """
         Extend the bounding box to define the search region
@@ -82,13 +80,13 @@ class TrackUtils(object):
             bbox_h = _track.bbox[:, 3] - _track.bbox[:, 1] + 1
             w_ext = bbox_w * (self.search_expansion / 2.)
             h_ext = bbox_h * (self.search_expansion / 2.)
-            
+
             # todo: need to check the equation later
-            min_w_ext = (self.min_search_wh - bbox_w) / (
-                self.search_expansion * 2.)
-            min_h_ext = (self.min_search_wh - bbox_h) / (
-                self.search_expansion * 2.)
-            
+            min_w_ext = (self.min_search_wh -
+                         bbox_w) / (self.search_expansion * 2.)
+            min_h_ext = (self.min_search_wh -
+                         bbox_h) / (self.search_expansion * 2.)
+
             w_ext = torch.max(min_w_ext, w_ext)
             h_ext = torch.max(min_h_ext, h_ext)
             in_box[i].bbox[:, 0] -= w_ext
@@ -97,47 +95,51 @@ class TrackUtils(object):
             in_box[i].bbox[:, 3] += h_ext
             # in_box[i].clip_to_image()
         return in_box
-    
+
     def pad_feature(self, f):
         """
         Pad the feature maps with 0
         :param f: [torch.tensor] or torch.tensor
         """
-        
+
         if isinstance(f, (list, tuple)):
             pad_f = []
             for i, _f in enumerate(f):
                 # todo fix this hack, should read from cfg file
-                pad_pixels = int(self.pad_pixels / ((2 ** i) * 4))
+                pad_pixels = int(self.pad_pixels / ((2**i) * 4))
                 x = F.pad(
                     _f, [pad_pixels, pad_pixels, pad_pixels, pad_pixels],
-                    mode='constant', value=0
+                    mode='constant',
+                    value=0
                 )
                 pad_f.append(x)
             pad_f = tuple(pad_f)
         else:
             pad_f = F.pad(
-                f, [self.pad_pixels, self.pad_pixels,
-                    self.pad_pixels, self.pad_pixels],
-                mode='constant', value=0
+                f, [
+                    self.pad_pixels, self.pad_pixels, self.pad_pixels,
+                    self.pad_pixels
+                ],
+                mode='constant',
+                value=0
             )
-        
+
         return pad_f
-    
+
     def update_boxes_in_pad_images(self, boxlists: List[BoxList]):
         """
         Update the coordinates of bounding boxes in the padded image
         """
-        
+
         pad_width = self.pad_pixels
         pad_height = self.pad_pixels
-        
+
         pad_boxes = []
         for _boxlist in boxlists:
             im_width, im_height = _boxlist.size
             new_width = int(im_width + pad_width * 2)
             new_height = int(im_height + pad_height * 2)
-            
+
             assert (_boxlist.mode == 'xyxy')
             xmin, ymin, xmax, ymax = _boxlist.bbox.split(1, dim=-1)
             new_xmin = xmin + pad_width
@@ -149,7 +151,7 @@ class TrackUtils(object):
             for _field in _boxlist.fields():
                 bbox.add_field(_field, _boxlist.get_field(_field))
             pad_boxes.append(bbox)
-        
+
         return pad_boxes
 
 
@@ -157,7 +159,6 @@ class TrackPool(object):
     """
     A class to manage the track id distribution (initiate/kill a track)
     """
-    
     def __init__(
         self,
         active_ids: Optional[Set[int]] = None,
@@ -175,21 +176,21 @@ class TrackPool(object):
         self._frame_idx: int = 0
         self._max_dormant_frames: int = max_dormant_frames
         self._max_entangle_length: int = max_entangle_length
-    
+
     @property
     def frame_idx(self) -> int:
         return self._frame_idx
-    
+
     def suspend_track(self, track_id: int) -> None:
         """
         Suspend an active track, and add it to dormant track pools
         """
         if track_id not in self._active_ids:
             raise ValueError
-        
+
         self._active_ids.remove(track_id)
         self._dormant_ids[track_id] = self._frame_idx - 1
-    
+
     def expire_tracks(self) -> None:
         """
         Expire the suspended tracks after they are inactive
@@ -200,10 +201,10 @@ class TrackPool(object):
                 self._dormant_ids.pop(track_id)
                 self._kill_ids.add(track_id)
                 self._cache.pop(track_id, None)
-    
+
     def increment_frame(self, value: int = 1) -> None:
         self._frame_idx += value
-    
+
     def update_cache(self, cache) -> None:
         """
         Update the latest position (bbox) / search region / template feature
@@ -218,11 +219,11 @@ class TrackPool(object):
                 features = template_features[idx]
             else:
                 features = template_features
-            search_region = sr[idx: idx + 1]
-            box = template_boxes[idx: idx + 1]
+            search_region = sr[idx:idx + 1]
+            box = template_boxes[idx:idx + 1]
             track_id = box.get_field('ids').item()
             self._cache[track_id] = (features, search_region, box)
-    
+
     def resume_track(self, track_id: int) -> None:
         """
         Resume a dormant track
@@ -230,10 +231,10 @@ class TrackPool(object):
         if track_id not in self._dormant_ids or \
             track_id in self._active_ids:
             raise ValueError
-        
+
         self._active_ids.add(track_id)
         self._dormant_ids.pop(track_id)
-    
+
     def start_track(self) -> int:
         """
         Return a new track id, when starting a new track
@@ -241,21 +242,21 @@ class TrackPool(object):
         new_id = self._max_id + 1
         self._max_id = new_id
         self._active_ids.add(new_id)
-        
+
         return new_id
-    
+
     def get_active_ids(self):
         return self._active_ids
-    
+
     def get_dormant_ids(self):
         return set(self._dormant_ids.keys())
-    
+
     def get_cache(self):
         return self._cache
-    
+
     def get_last_active_frame_idx(self, track_id: int) -> int:
         return self._dormant_ids[track_id]
-    
+
     def reset(self) -> None:
         self._active_ids = set()
         self._kill_ids = set()
@@ -269,7 +270,7 @@ def build_track_utils(cfg: CfgNode) -> Tuple[TrackUtils, TrackPool]:
     search_expansion = cfg.MODEL.TRACK_HEAD.SEARCH_REGION - 1.
     pad_pixels = cfg.MODEL.TRACK_HEAD.PAD_PIXELS
     min_search_wh = cfg.MODEL.TRACK_HEAD.MINIMUM_SREACH_REGION
-    
+
     track_utils = TrackUtils(
         search_expansion=search_expansion,
         min_search_wh=min_search_wh,
@@ -278,5 +279,5 @@ def build_track_utils(cfg: CfgNode) -> Tuple[TrackUtils, TrackPool]:
     track_pool = TrackPool(
         max_dormant_frames=cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES
     )
-    
+
     return track_utils, track_pool

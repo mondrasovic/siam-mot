@@ -1,7 +1,6 @@
 # Patch the operators in maskrcnn_benchmark
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 try:

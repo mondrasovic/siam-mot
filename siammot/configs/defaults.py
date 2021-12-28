@@ -1,7 +1,6 @@
 from maskrcnn_benchmark.config import cfg
 from yacs.config import CfgNode as CN
 
-
 # default detector config (Rewrite some of them in cfg)
 cfg.MODEL.META_ARCHITECTURE = 'GeneralizedRCNN'
 cfg.MODEL.BACKBONE.CONV_BODY = 'DLA-34-FPN'
@@ -55,7 +54,7 @@ cfg.MODEL.TRACK_HEAD.MODEL = 'EMM'
 cfg.MODEL.TRACK_HEAD.TRACK_THRESH = 0.3
 cfg.MODEL.TRACK_HEAD.START_TRACK_THRESH = 0.6
 cfg.MODEL.TRACK_HEAD.RESUME_TRACK_THRESH = 0.4
-cfg.MODEL.TRACK_HEAD.NMS_THRESH = 0.5  
+cfg.MODEL.TRACK_HEAD.NMS_THRESH = 0.5
 # maximum number of frames that a track can be dormant
 cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES = 25
 

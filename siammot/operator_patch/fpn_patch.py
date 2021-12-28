@@ -17,7 +17,7 @@ class FPN(nn.Module):
         for idx, in_channels in enumerate(in_channels_list, 1):
             inner_block = "fpn_inner{}".format(idx)
             layer_block = "fpn_layer{}".format(idx)
-            
+
             if in_channels == 0:
                 continue
             inner_block_module = conv_block(in_channels, out_channels, 1)
@@ -27,7 +27,7 @@ class FPN(nn.Module):
             self.inner_blocks.append(inner_block)
             self.layer_blocks.append(layer_block)
         self.top_blocks = top_blocks
-    
+
     def forward(self, x):
         """
         Arguments:
@@ -52,19 +52,21 @@ class FPN(nn.Module):
             inner_lateral = getattr(self, inner_block)(feature)
             # patch it to support the image size that is not divisible by 32
             inner_top_down = F.interpolate(
-                last_inner, size=inner_lateral.shape[-2:],
-                mode='bilinear', align_corners=False
+                last_inner,
+                size=inner_lateral.shape[-2:],
+                mode='bilinear',
+                align_corners=False
             )
             last_inner = inner_lateral + inner_top_down
             results.insert(0, getattr(self, layer_block)(last_inner))
-        
+
         if isinstance(self.top_blocks, LastLevelP6P7):
             last_results = self.top_blocks(x[-1], results[-1])
             results.extend(last_results)
         elif isinstance(self.top_blocks, LastLevelMaxPool):
             last_results = self.top_blocks(results[-1])
             results.extend(last_results)
-        
+
         return tuple(results)
 
 

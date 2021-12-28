@@ -40,20 +40,20 @@ def do_train(
                 "targets Length={[len(target) for target in targets]}"
             )
             continue
-        
+
         data_time = time.time() - end
         iteration = iteration + 1
         arguments["iteration"] = iteration
-        
+
         scheduler.step()
-        
+
         images = images.to(device)
         targets = [target.to(device) for target in targets]
-        
+
         _, loss_dict = model(images, targets)
-        
+
         losses = sum(loss for loss in loss_dict.values()) / n_accum_iters
-        
+
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = (
@@ -65,7 +65,7 @@ def do_train(
         # Otherwise apply loss scaling for mixed-precision recipe
         with amp.scale_loss(losses, optimizer) as scaled_losses:
             scaled_losses.backward()
-        
+
         if (iteration % n_accum_iters == 0) or (iteration == len(data_loader)):
             optimizer.step()
             optimizer.zero_grad()
@@ -74,13 +74,13 @@ def do_train(
         tensorboard_writer(
             iteration, losses_reduced, loss_dict_reduced, images, targets
         )
-        
+
         batch_time = time.time() - end
         end = time.time()
         meters.update(time=batch_time, data=data_time)
         eta_seconds = meters.time.global_avg * (max_iter - iteration)
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-        
+
         if (get_world_size() < 2) or (dist.get_rank() == 0):
             if (iteration % 20 == 0) or (iteration == max_iter):
                 logger.info(
@@ -102,7 +102,7 @@ def do_train(
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
-    
+
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
     logger.info(
@@ -110,6 +110,7 @@ def do_train(
             total_time_str, total_training_time / (max_iter)
         )
     )
+
 
 def do_train_old(
     model,
@@ -139,20 +140,20 @@ def do_train_old(
                 "targets Length={[len(target) for target in targets]}"
             )
             continue
-        
+
         data_time = time.time() - end
         iteration = iteration + 1
         arguments["iteration"] = iteration
-        
+
         scheduler.step()
-        
+
         images = images.to(device)
         targets = [target.to(device) for target in targets]
-        
+
         _, loss_dict = model(images, targets)
-        
+
         losses = sum(loss for loss in loss_dict.values())
-        
+
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_loss_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
@@ -164,18 +165,18 @@ def do_train_old(
         with amp.scale_loss(losses, optimizer) as scaled_losses:
             scaled_losses.backward()
         optimizer.step()
-        
+
         # write images / ground truth / evaluation metrics to tensorboard
         tensorboard_writer(
             iteration, losses_reduced, loss_dict_reduced, images, targets
         )
-        
+
         batch_time = time.time() - end
         end = time.time()
         meters.update(time=batch_time, data=data_time)
         eta_seconds = meters.time.global_avg * (max_iter - iteration)
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-        
+
         if get_world_size() < 2 or dist.get_rank() == 0:
             if iteration % 20 == 0 or iteration == max_iter:
                 logger.info(
@@ -197,7 +198,7 @@ def do_train_old(
             checkpointer.save("model_{:07d}".format(iteration), **arguments)
         if iteration == max_iter:
             checkpointer.save("model_final", **arguments)
-    
+
     total_training_time = time.time() - start_training_time
     total_time_str = str(datetime.timedelta(seconds=total_training_time))
     logger.info(

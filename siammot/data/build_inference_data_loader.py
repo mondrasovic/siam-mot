@@ -10,7 +10,6 @@ class InferenceVideoData(data.Dataset):
     Split the video into small chunks (in an non-overlapping fashion) for
     inference
     """
-    
     def __init__(self, video: DataSample, clip_len=1, transforms=None):
         """
         Construct a data loader for inference
@@ -23,7 +22,7 @@ class InferenceVideoData(data.Dataset):
         self.clip_len = clip_len
         self.transforms = transforms
         self.clip_idxs = list(range(0, len(self.video), self.clip_len))
-    
+
     def __getitem__(self, id):
         video_clip = []
         # this is needed for transformation
@@ -31,30 +30,28 @@ class InferenceVideoData(data.Dataset):
         timestamps = []
         start_idx = self.clip_idxs[id]
         end_idx = min(len(self.video), start_idx + self.clip_len)
-        
+
         for frame_idx in range(start_idx, end_idx):
             (im, timestamp, _) = self.video_reader[frame_idx]
             dummy_bbox = torch.tensor([[0, 0, 1, 1]])
             dummy_boxlist = BoxList(dummy_bbox, im.size, mode='xywh')
-            
+
             video_clip.append(im)
             timestamps.append(torch.tensor(timestamp))
             dummy_boxes.append(dummy_boxlist)
-        
+
         if self.transforms is not None:
             video_clip, _ = self.transforms(video_clip, dummy_boxes)
-        
+
         return torch.stack(video_clip), start_idx, torch.stack(timestamps)
-    
+
     def __len__(self):
         return len(self.clip_idxs)
 
 
 def build_video_loader(cfg, video: DataSample, transforms):
     videodata = InferenceVideoData(
-        video,
-        clip_len=cfg.INFERENCE.CLIP_LEN,
-        transforms=transforms
+        video, clip_len=cfg.INFERENCE.CLIP_LEN, transforms=transforms
     )
     videoloader = data.DataLoader(
         videodata,
@@ -62,5 +59,5 @@ def build_video_loader(cfg, video: DataSample, transforms):
         batch_size=1,
         shuffle=False
     )
-    
+
     return videoloader

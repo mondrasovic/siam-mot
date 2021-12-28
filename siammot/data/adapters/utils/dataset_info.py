@@ -9,39 +9,18 @@ modality
 )
 """
 
-dataset_maps['TAO'] = [
-    'TAO',
-    'anno_person.json',
-    'splits_person.json',
-    'video'
-]
+dataset_maps['TAO'] = ['TAO', 'anno_person.json', 'splits_person.json', 'video']
 
 dataset_maps['CRP'] = [
-    'caltech_roadside_pedestrians',
-    'anno.json',
-    'splits.json',
-    'video'
+    'caltech_roadside_pedestrians', 'anno.json', 'splits.json', 'video'
 ]
 
-dataset_maps['MOT17_DPM'] = [
-    'MOT17',
-    'anno.json',
-    'splits_DPM.json',
-    'video'
-]
+dataset_maps['MOT17_DPM'] = ['MOT17', 'anno.json', 'splits_DPM.json', 'video']
 
-dataset_maps['MOT17'] = [
-    'MOT17',
-    'anno.json',
-    'splits.json',
-    'video'
-]
+dataset_maps['MOT17'] = ['MOT17', 'anno.json', 'splits.json', 'video']
 
 dataset_maps['AOT'] = [
-    'airbone_object_tracking',
-    'anno.json',
-    'splits.json',
-    'video'
+    'airbone_object_tracking', 'anno.json', 'splits.json', 'video'
 ]
 
 dataset_maps['COCO17_train'] = [
@@ -60,36 +39,21 @@ dataset_maps['crowdhuman_train_fbox'] = [
 ]
 
 dataset_maps['crowdhuman_train_vbox'] = [
-    'CrowdHuman',
-    'annotations/annotation_train_vbox.json',
-    'Images',
-    'image'
+    'CrowdHuman', 'annotations/annotation_train_vbox.json', 'Images', 'image'
 ]
 
 dataset_maps['crowdhuman_val_fbox'] = [
-    'CrowdHuman',
-    'annotations/annotation_val_fbox.json',
-    'Images',
-    'image'
+    'CrowdHuman', 'annotations/annotation_val_fbox.json', 'Images', 'image'
 ]
 
 dataset_maps['crowdhuman_val_vbox'] = [
-    'CrowdHuman',
-    'annotations/annotation_val_vbox.json',
-    'Images',
-    'image'
+    'CrowdHuman', 'annotations/annotation_val_vbox.json', 'Images', 'image'
 ]
 
 dataset_maps['UA_DETRAC'] = [
-    'UA-DETRAC_GluonCV',
-    'anno.json',
-    'splits.json',
-    'video'
+    'UA-DETRAC_GluonCV', 'anno.json', 'splits.json', 'video'
 ]
 
 dataset_maps['KITTI_MOT'] = [
-    'KITTI-MOT_GluonCV',
-    'anno.json',
-    'splits.json',
-    'video'
+    'KITTI-MOT_GluonCV', 'anno.json', 'splits.json', 'video'
 ]

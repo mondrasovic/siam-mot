@@ -19,12 +19,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     Combines a set of individual heads (for box prediction or masks) into a
     single head.
     """
-    
-    def __init__(
-        self,
-        cfg: CfgNode,
-        heads
-    ) -> None:
+    def __init__(self, cfg: CfgNode, heads) -> None:
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()
 
@@ -33,13 +28,13 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
         proposals: List[BoxList],
         targets: None = None,
-        track_memory: Optional[
-            Tuple[Tensor, List[BoxList], List[BoxList]]] = None,
+        track_memory: Optional[Tuple[Tensor, List[BoxList],
+                                     List[BoxList]]] = None,
         given_detection: None = None
     ) -> Tuple[Tuple[Tensor, List[BoxList], List[BoxList]], List[BoxList], Dict[
         Any, Any]]:
         losses = {}
-        
+
         if given_detection is None:
             x, detections, loss_box = self.box(features, proposals, targets)
         else:
@@ -53,13 +48,13 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                 detections = given_detection
                 loss_box = {}
         losses.update(loss_box)
-        
+
         if self.cfg.MODEL.TRACK_ON:
             _, tracks, loss_track = self.track(
                 features, proposals, targets, track_memory
             )
             losses.update(loss_track)
-            
+
             # solver is only needed during inference
             if not self.training:
                 if tracks is not None:
@@ -67,25 +62,24 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     # exploiting already extracted features.
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
-                
+
                 detections = self.solver(detections, features)
-                
+
                 # Get the current state for tracking.
                 # Extract fresh feature ROIs for ongoing detections.
                 x = self.track.get_track_memory(features, detections)
-        
+
         return x, detections, losses
-    
+
     def reset_roi_status(self) -> None:
         """
         Reset the status of ROI Heads
         """
         if self.cfg.MODEL.TRACK_ON:
             self.track.reset_track_pool()
-    
+
     def _refine_tracks(
-        self,
-        features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
+        self, features: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
         tracks: List[BoxList]
     ) -> List[BoxList]:
         """
@@ -99,20 +93,20 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         _, tracks, _ = self.box(features, tracks)
         det_scores = tracks[0].get_field('scores')
         det_boxes = tracks[0].bbox
-        
+
         if self.cfg.MODEL.TRACK_HEAD.TRACKTOR:
             scores = det_scores
         else:
             scores = (det_scores + track_scores) / 2.
         boxes = det_boxes
-        
+
         r_tracks = BoxList(
             boxes, image_size=tracks[0].size, mode=tracks[0].mode
         )
         r_tracks.add_field('scores', scores)
         r_tracks.add_field('ids', tracks[0].get_field('ids'))
         r_tracks.add_field('labels', tracks[0].get_field('labels'))
-        
+
         return [r_tracks]
 
 
@@ -128,9 +122,9 @@ def build_roi_heads(cfg: CfgNode, in_channels: int) -> CombinedROIHeads:
         # solver is a non-learnable layer that would only be used during
         # inference
         roi_heads.append(('solver', build_track_solver(cfg, track_pool)))
-    
+
     # combine individual heads in a single module
     if roi_heads:
         roi_heads = CombinedROIHeads(cfg, roi_heads)
-    
+
     return roi_heads

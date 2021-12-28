@@ -38,13 +38,13 @@ def boxlist_nms_idxs_only(
 
 def get_nms_boxes(detection: BoxList):
     detection = boxlist_nms(detection, nms_thresh=0.5)
-    
+
     _ids = detection.get_field('ids')
     _scores = detection.get_field('scores')
-    
+
     _scores[_scores >= 2.] = _scores[_scores >= 2.] - 2.
     _scores[_scores >= 1.] = _scores[_scores >= 1.] - 1.
-    
+
     return detection, _ids, _scores
 
 
@@ -74,9 +74,12 @@ class TrackSolver(torch.nn.Module, abc.ABC):
     def _add_debug(self, stage, detections, metadata=None):
         if self.solver_debugger:
             self.solver_debugger.add_detections(
-                stage, detections, self.track_pool.get_active_ids(),
-                self.track_pool.get_dormant_ids(), metadata=metadata
-    )
+                stage,
+                detections,
+                self.track_pool.get_active_ids(),
+                self.track_pool.get_dormant_ids(),
+                metadata=metadata
+            )
 
     def _debug_save_frame(self):
         if self.solver_debugger:
@@ -97,7 +100,7 @@ class TrackSolverOrig(TrackSolver):
             track_pool, track_thresh, start_track_thresh, resume_track_thresh,
             nms_thresh, add_debug
         )
-    
+
     def forward(self, detection: List[BoxList], features=None):
         """
         The solver is to merge predictions from detection branch as well as
@@ -112,41 +115,41 @@ class TrackSolverOrig(TrackSolver):
         """
         assert len(detection) == 1
         detection = detection[0]
-        
+
         if len(detection) == 0:
             return [detection]
-        
+
         self._add_debug('input', detection)
 
         track_pool = self.track_pool
-        
+
         all_ids = detection.get_field('ids')
         all_scores = detection.get_field('scores')
         active_ids = track_pool.get_active_ids()
         dormant_ids = track_pool.get_dormant_ids()
         device = all_ids.device
-        
+
         active_mask = torch.tensor(
             [int(x) in active_ids for x in all_ids], device=device
         )
-        
+
         # differentiate active tracks from dormant tracks with scores
         # active tracks, (3 >= score > 2, id >= 0),
         # dormant tracks, (2 >= score > 1, id >= 0),
         # By doing this, dormant tracks will be merged to active tracks
         # during nms if they highly overlap
         all_scores[active_mask] += 1.
-        
+
         nms_detection, _, _ = get_nms_boxes(detection)
         self._add_debug('after NMS', nms_detection)
 
         combined_detection = nms_detection
         _ids = combined_detection.get_field('ids')
         _scores = combined_detection.get_field('scores')
-        
+
         # start track ids
         start_idxs = ((_ids < 0) & (_scores >= self.start_thresh)).nonzero()
-        
+
         # inactive track ids
         inactive_idxs = ((_ids >= 0) & (_scores < self.track_thresh))
         nms_track_ids = set(_ids[_ids >= 0].tolist())
@@ -154,7 +157,7 @@ class TrackSolverOrig(TrackSolver):
         # active tracks that are removed by nms
         nms_removed_ids = all_track_ids - nms_track_ids
         inactive_ids = set(_ids[inactive_idxs].tolist()) | nms_removed_ids
-        
+
         # resume dormant tracks, if needed
         dormant_mask = torch.tensor(
             [int(x) in dormant_ids for x in _ids], device=device
@@ -162,25 +165,25 @@ class TrackSolverOrig(TrackSolver):
         resume_ids = _ids[dormant_mask & (_scores >= self.resume_track_thresh)]
         for _id in resume_ids.tolist():
             track_pool.resume_track(_id)
-        
+
         for _idx in start_idxs:
             _ids[_idx] = track_pool.start_track()
-        
+
         active_ids = track_pool.get_active_ids()
         for _id in inactive_ids:
             if _id in active_ids:
                 track_pool.suspend_track(_id)
-        
+
         # make sure that the ids for inactive tracks in current frame are
         # meaningless (< 0)
         _ids[inactive_idxs] = -1
-        
+
         self._add_debug('output', combined_detection)
         self._debug_save_frame()
 
         track_pool.expire_tracks()
         track_pool.increment_frame()
-        
+
         return [combined_detection]
 
 

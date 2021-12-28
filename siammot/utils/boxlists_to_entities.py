@@ -13,10 +13,10 @@ def boxlists_to_entities(
     Convert a list of boxlist to entities
     :return:
     """
-    
+
     if isinstance(boxlists, BoxList):
         boxlists = [boxlists]
-    
+
     # default class is person only
     if class_table is None:
         # class_table = [
@@ -26,9 +26,9 @@ def boxlists_to_entities(
         class_table = ["vehicle"]
         # TODO Make class table parametric.
         # class_table = ['person']
-    
+
     assert isinstance(boxlists, list), "The input has to be a list"
-    
+
     entities = []
     for i, boxlist in enumerate(boxlists):
         for j in range(len(boxlist)):
@@ -44,34 +44,32 @@ def boxlists_to_entities(
             entity.frame_num = firstframe_idx + i
             entity.time = timestamps[i]
             entity.blob['sample_name'] = sample_name
-            
+
             entities.append(entity)
-    
+
     return entities
 
 
 def convert_given_detections_to_boxlist(
-    entities: List[AnnoEntity], video_width, video_height,
-    class_table=None
+    entities: List[AnnoEntity], video_width, video_height, class_table=None
 ):
     if class_table is None:
         # class_table = ["person"]
         class_table = ["vehicle"]
-    
+
     boxes = [_entity.bbox for _entity in entities]
     boxes = torch.as_tensor(boxes).reshape(-1, 4)
-    _labels = [class_table.index(list(_entity.labels.keys())[0]) + 1 for _entity
-        in entities]
+    _labels = [
+        class_table.index(list(_entity.labels.keys())[0]) + 1
+        for _entity in entities
+    ]
     _labels = torch.tensor(_labels, dtype=torch.int64)
     _scores = torch.tensor([_entity.confidence for _entity in entities])
     _ids = torch.tensor([-1 for _entity in entities], dtype=torch.int64)
-    boxlist = BoxList(
-        boxes,
-        [video_width, video_height],
-        mode='xywh'
-    ).convert('xyxy')
+    boxlist = BoxList(boxes, [video_width, video_height],
+                      mode='xywh').convert('xyxy')
     boxlist.add_field('labels', _labels)
     boxlist.add_field('scores', _scores)
     boxlist.add_field('ids', _ids)
-    
+
     return boxlist
