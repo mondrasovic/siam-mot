@@ -19,7 +19,6 @@ from ..utils.boxlists_to_entities import (
     boxlists_to_entities,
     convert_given_detections_to_boxlist,
 )
-from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager
 from siammot.modelling.track_head.track_solver_debug import (
     build_or_get_existing_track_solver_debugger
 )
@@ -66,8 +65,6 @@ def do_inference(
     model.eval()
     gpu_device = torch.device('cuda')
     
-    reid_manager = build_or_get_existing_reid_manager(cfg)
-    reid_manager.reset()
     inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
 
     add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
@@ -89,9 +86,6 @@ def do_inference(
         frame_id = frame_id.item()
         timestamps = torch.squeeze(timestamps, dim=0).tolist()
         video_clip = torch.squeeze(video_clip, dim=0)
-
-        frame_orig = inverse_img_transform(video_clip)
-        reid_manager.add_next_frame(frame_orig)
 
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
@@ -132,8 +126,6 @@ def do_inference(
         for entity in output_entities:
             sample_result.add_entity(entity)
         
-        reid_manager.increment_frame_idx()
-    
     logger.info(
         'Sample_id {} / Speed {} fps'.format(
             sample.id, len(sample) / (network_time)

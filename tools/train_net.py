@@ -42,42 +42,11 @@ parser.add_argument(
     default=None, nargs=argparse.REMAINDER
 )
 
-
-def freeze_layers_if_necessary(cfg, model):
-    train_emb_freeze_rest = cfg.MODEL.TRAIN_EMB_FREEZE_REST
-    use_feature_emb = cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS != 'none'
-
-    if train_emb_freeze_rest:
-        if use_feature_emb:
-            emb_layers_status = True
-            rem_layers_status = False
-        else:
-            raise RuntimeError(
-                'cannot train feature embedding without triplet loss'
-            )
-    else:
-        if use_feature_emb:
-            raise RuntimeError(
-                'cannot use a triplet loss if feature embedding is not trained'
-            )
-        else:
-            emb_layers_status = False
-            rem_layers_status = True
-
-    for name, param in model.named_parameters():
-        if 'feature_emb' in name:
-            param.requires_grad = emb_layers_status
-        else:
-            param.requires_grad = rem_layers_status
-
-
 def train(cfg, train_dir, local_rank, distributed, logger):
     # build model
     model = build_siammot(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
-
-    freeze_layers_if_necessary(cfg, model)
 
     print("Parameters trainability status:".upper())
     for name, param in model.named_parameters():

@@ -1,5 +1,3 @@
-from torch._C import device
-from siammot.modelling import reid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -10,7 +8,6 @@ from yacs.config import CfgNode
 
 from siammot.modelling.box_head.box_head import ROIBoxHead
 from siammot.modelling.track_head.track_head import TrackHead
-from siammot.modelling.track_head.track_solver import TrackSolverReid
 from .box_head.box_head import build_roi_box_head
 from .track_head.track_head import build_track_head
 from .track_head.track_solver import build_track_solver
@@ -26,14 +23,10 @@ class CombinedROIHeads(torch.nn.ModuleDict):
     def __init__(
         self,
         cfg: CfgNode,
-        heads: List[Union[Tuple[str, ROIBoxHead], Tuple[str, TrackHead], Tuple[
-            str, TrackSolverReid]]]
+        heads
     ) -> None:
         super(CombinedROIHeads, self).__init__(heads)
         self.cfg = cfg.clone()
-
-        # TODO Some time in the future, remove this ugly solution.
-        self.freeze_dormant: bool = cfg.MODEL.TRACK_HEAD.FREEZE_DORMANT
 
     def forward(
         self,
@@ -62,11 +55,6 @@ class CombinedROIHeads(torch.nn.ModuleDict):
         losses.update(loss_box)
         
         if self.cfg.MODEL.TRACK_ON:
-            if self.freeze_dormant:
-                template_boxes = self.extract_dormant_template_boxes(
-                    track_memory
-                )
-
             _, tracks, loss_track = self.track(
                 features, proposals, targets, track_memory
             )
@@ -80,12 +68,6 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
                 
-                if self.freeze_dormant:
-                    self.replace_dormant_template_boxes(
-                        detections, template_boxes
-                    )
-
-                # TODO Exploit features through the parameter? Yeah....
                 detections = self.solver(detections, features)
                 
                 # Get the current state for tracking.
@@ -93,36 +75,6 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                 x = self.track.get_track_memory(features, detections)
         
         return x, detections, losses
-    
-    def extract_dormant_template_boxes(self, track_memory):
-        dormant_template_boxes = {}        
-        if not track_memory:
-            return dormant_template_boxes
-        
-        _, _, (template_boxes,) = track_memory        
-        if len(template_boxes) > 0:
-            dormant_ids = self.solver.track_pool.get_dormant_ids()
-            ids = template_boxes.get_field('ids')
-            boxes = template_boxes.bbox
-            
-            for id_, box in zip(ids, boxes):
-                id_ = id_.item()
-                if id_ in dormant_ids:
-                    dormant_template_boxes[id_] = box.clone()
-
-        return dormant_template_boxes
-
-    def replace_dormant_template_boxes(self, detections, template_boxes):
-        detections, = detections
-        dormant_ids = self.solver.track_pool.get_dormant_ids()
-        ids = detections.get_field('ids').tolist()
-        boxes = detections.bbox
-
-        for i, id_ in enumerate(ids):
-            if id_ in dormant_ids:
-                prev_template_box = template_boxes.get(id_)
-                if prev_template_box is not None:
-                    boxes[i] = prev_template_box
     
     def reset_roi_status(self) -> None:
         """
@@ -175,9 +127,7 @@ def build_roi_heads(cfg: CfgNode, in_channels: int) -> CombinedROIHeads:
         roi_heads.append(('track', track_head))
         # solver is a non-learnable layer that would only be used during
         # inference
-        roi_heads.append(
-            ('solver', build_track_solver(cfg, track_pool, track_head))
-        )
+        roi_heads.append(('solver', build_track_solver(cfg, track_pool)))
     
     # combine individual heads in a single module
     if roi_heads:

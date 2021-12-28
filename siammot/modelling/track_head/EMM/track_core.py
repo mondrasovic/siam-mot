@@ -10,7 +10,6 @@ from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
 from .track_loss import EMMLossComputation
 from .xcorr import xcorr_depthwise
-from .feature_emb import FeatureEmbHead
 
 
 @registry.SIAMESE_TRACKER.register("EMM")
@@ -19,12 +18,6 @@ class EMM(torch.nn.Module):
         super(EMM, self).__init__()
         self.feature_extractor = EMMFeatureExtractor(cfg)
         self.predictor = EMMPredictor(cfg)
-        self.use_feature_emb = (
-            cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS != 'none'
-        )
-        self.feature_emb = FeatureEmbHead(
-            cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
-        )
         self.loss = EMMLossComputation(cfg)
         
         self.track_utils = track_utils
@@ -70,22 +63,15 @@ class EMM(torch.nn.Module):
             src_bboxes = cat([b.bbox for b in boxes], dim=0)
             gt_bboxes = cat([b.bbox for b in targets], dim=0)
 
-            if self.use_feature_emb:
-                embs = self.feature_emb(template_features)
-                ids = cat([b.get_field('ids') for b in boxes])
-            else:
-                embs = ids = None
-
-            cls_loss, reg_loss, centerness_loss, emb_loss = self.loss(
+            cls_loss, reg_loss, centerness_loss = self.loss(
                 locations, cls_logits, reg_logits, center_logits, src_bboxes,
-                gt_bboxes, embs, ids
+                gt_bboxes
             )
             
             loss = dict(
                 loss_tracker_class=cls_loss,
                 loss_tracker_motion=reg_loss,
-                loss_tracker_center=centerness_loss,
-                loss_tracker_emb=emb_loss,
+                loss_tracker_center=centerness_loss
             )
             
             return {}, {}, loss
@@ -139,11 +125,6 @@ class EMM(torch.nn.Module):
         x = self.feature_extractor(features, detection)
         return x
     
-    def features_to_embeddings(self, template_features):
-        embs = self.feature_emb(template_features)
-        return embs
-
-
 def decode_response(
     cls_logits, center_logits, reg_logits, locations, boxes,
     use_centerness=True, sigma=0.4

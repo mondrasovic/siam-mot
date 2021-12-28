@@ -2,8 +2,6 @@ from maskrcnn_benchmark.config import cfg
 from yacs.config import CfgNode as CN
 
 
-cfg.MODEL.TRAIN_EMB_FREEZE_REST = False
-
 # default detector config (Rewrite some of them in cfg)
 cfg.MODEL.META_ARCHITECTURE = 'GeneralizedRCNN'
 cfg.MODEL.BACKBONE.CONV_BODY = 'DLA-34-FPN'
@@ -63,11 +61,7 @@ cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES = 25
 
 # ReID related configurations
 cfg.MODEL.TRACK_HEAD.SOLVER_TYPE = 'original'
-cfg.MODEL.TRACK_HEAD.IOU_THRESH_1 = 0.4
-cfg.MODEL.TRACK_HEAD.IOU_THRESH_2 = 0.8
-cfg.MODEL.TRACK_HEAD.COS_SIM_THRESH = 0.6  # threshold for <-1, 1> interval
 cfg.MODEL.TRACK_HEAD.ADD_DEBUG = False
-cfg.MODEL.TRACK_HEAD.FREEZE_DORMANT = False
 
 # track proposal sampling
 cfg.MODEL.TRACK_HEAD.PROPOSAL_PER_IMAGE = 256
@@ -92,9 +86,6 @@ cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION = 0.8
 # Setting this param to be small (e.g. 0.1) for datasets that have fast motion,
 # such as caltech roadside pedestrian
 cfg.MODEL.TRACK_HEAD.EMM.COSINE_WINDOW_WEIGHT = 0.4
-
-# Feature embedding loss (empty, 'contrastive' or 'triplet')
-cfg.MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS = 'none'
 
 # all video-related parameters
 cfg.VIDEO = CN()

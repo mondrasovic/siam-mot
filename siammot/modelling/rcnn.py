@@ -1,7 +1,6 @@
 """
 Implements the Generalized R-CNN for SiamMOT
 """
-from siammot.modelling.reid.reid_man import ReIdManager
 from typing import List, Optional, Tuple
 
 from maskrcnn_benchmark.modeling.rpn.rpn import build_rpn
@@ -12,7 +11,6 @@ from yacs.config import CfgNode
 
 from .backbone.backbone_ext import build_backbone
 from .roi_heads import build_roi_heads
-from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager, ReIdManager
 
 
 class SiamMOT(nn.Module):
