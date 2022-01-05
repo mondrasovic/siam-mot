@@ -8,17 +8,19 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 
 from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
+from .attention import FeatureChannelAttention
 from .track_loss import EMMLossComputation
 from .xcorr import xcorr_depthwise
 
 
-@registry.SIAMESE_TRACKER.register("EMM")
+@registry.SIAMESE_TRACKER.register('EMM')
 class EMM(torch.nn.Module):
     def __init__(self, cfg, track_utils):
         super(EMM, self).__init__()
         self.feature_extractor = EMMFeatureExtractor(cfg)
         self.predictor = EMMPredictor(cfg)
         self.loss = EMMLossComputation(cfg)
+        self.attention = FeatureChannelAttention(128)  # TODO Use cfg for this.
 
         self.track_utils = track_utils
         self.amodal = cfg.INPUT.AMODAL
@@ -52,6 +54,12 @@ class EMM(torch.nn.Module):
         features = self.track_utils.pad_feature(features)
 
         sr_features = self.feature_extractor(features, boxes, sr)
+
+        template_attention, sr_attention = self.attention(
+            template_features, sr_features
+        )
+        template_features *= template_attention
+        sr_features *= sr_attention
 
         response_map = xcorr_depthwise(sr_features, template_features)
         cls_logits, center_logits, reg_logits = self.predictor(response_map)
