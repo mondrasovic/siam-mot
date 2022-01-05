@@ -1,6 +1,9 @@
+from os import stat
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
+from torch import nn
+from torch.nn import functional as F
+from yacs.config import CfgNode
 
 
 class AttentionEmbMapper(nn.Module):
@@ -9,7 +12,7 @@ class AttentionEmbMapper(nn.Module):
 
         self.fc1: nn.Module = nn.Linear(in_dim, hidden_dim, bias=False)
         self.relu2: nn.Module = nn.ReLU(inplace=True)
-        self.fc3 = nn.Module = nn.Linear(hidden_dim, out_dim, bias=False)
+        self.fc3: nn.Module = nn.Linear(hidden_dim, out_dim, bias=False)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Computes attention embedding. It maps input or context features into
@@ -101,3 +104,19 @@ class FeatureChannelAttention(nn.Module):
         )  # ([N,C], [N,C])
 
         return template_coefs, sr_coefs
+
+
+def build_feature_channel_attention(cfg: CfgNode) -> FeatureChannelAttention:
+    n_feature_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
+    query_key_dim = cfg.MODEL.TRACK_HEAD.ATT_QUERY_KEY_DIM
+    value_dim = cfg.MODEL.TRACK_HEAD.ATT_VALUE_DIM
+    softamx_temperature = cfg.MODEL.TRACK_HEAD.ATT_SOFTMAX_TEMP
+
+    attention = FeatureChannelAttention(
+        n_feature_channels,
+        query_key_dim=query_key_dim,
+        value_dim=value_dim,
+        softmax_temperature=softamx_temperature
+    )
+
+    return attention

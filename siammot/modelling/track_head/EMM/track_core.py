@@ -8,7 +8,7 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 
 from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
-from .attention import FeatureChannelAttention
+from .attention import build_feature_channel_attention
 from .track_loss import EMMLossComputation
 from .xcorr import xcorr_depthwise
 
@@ -20,7 +20,11 @@ class EMM(torch.nn.Module):
         self.feature_extractor = EMMFeatureExtractor(cfg)
         self.predictor = EMMPredictor(cfg)
         self.loss = EMMLossComputation(cfg)
-        self.attention = FeatureChannelAttention(128)  # TODO Use cfg for this.
+
+        if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
+            self.attention = build_feature_channel_attention(cfg)
+        else:
+            self.attention = None
 
         self.track_utils = track_utils
         self.amodal = cfg.INPUT.AMODAL
@@ -55,18 +59,29 @@ class EMM(torch.nn.Module):
 
         sr_features = self.feature_extractor(features, boxes, sr)
 
-        template_attention, sr_attention = self.attention(
-            template_features, sr_features
-        )
-        template_features *= template_attention
-        sr_features *= sr_attention
+        if self.attention is None:
+            template_features_weighted = template_features
+            sr_features_weighted = sr_features
+        else:
+            template_attention, sr_attention = self.attention(
+                template_features, sr_features
+            )
+            template_features_weighted = (
+                template_features * template_attention[..., None, None]
+            )
+            sr_features_weighted = sr_features * sr_attention[..., None, None]
 
-        response_map = xcorr_depthwise(sr_features, template_features)
+        response_map = xcorr_depthwise(
+            sr_features_weighted, template_features_weighted
+        )
         cls_logits, center_logits, reg_logits = self.predictor(response_map)
 
         if self.training:
             locations = get_locations(
-                sr_features, template_features, sr, shift_xy=(shift_x, shift_y)
+                sr_features_weighted,
+                template_features_weighted,
+                sr,
+                shift_xy=(shift_x, shift_y)
             )
             src_bboxes = cat([b.bbox for b in boxes], dim=0)
             gt_bboxes = cat([b.bbox for b in targets], dim=0)
@@ -95,8 +110,8 @@ class EMM(torch.nn.Module):
             )
 
             locations = get_locations(
-                sr_features,
-                template_features,
+                sr_features_weighted,
+                template_features_weighted,
                 sr,
                 shift_xy=(shift_x, shift_y),
                 up_scale=16
