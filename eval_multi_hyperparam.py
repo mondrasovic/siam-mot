@@ -3,6 +3,7 @@ import sys
 import json
 import click
 import pathlib
+import random
 import dataclasses
 
 import numpy as np
@@ -113,10 +114,12 @@ def iter_cmd_args(
     '-f', '--file-name-format', default='run_eval_{}.sh', show_default=True,
     help="Script file name format."
 )
+@click.option('--shuffle', is_flag=True, help="Randomly shuffle commands.")
 def main(
     param_json_file_path: click.Path,
     n_out_files: int,
-    file_name_format: str
+    file_name_format: str,
+    shuffle: bool
 ) -> int:
     with open(param_json_file_path, 'rt') as file_handle:
         params = json.load(file_handle)
@@ -131,11 +134,14 @@ def main(
     cfg_opts = [[CfgOptSpec(*c) for c in g] for g in params['cfg_opts_groups']]
     cfg_val_map = params.get('cfg_val_map')
 
-    cmds = tuple(iter_cmd_args(
+    cmds = list(iter_cmd_args(
         train_dir_path, config_file_path, dataset_name, data_subset,
         output_root_path, csv_file_name, model_suffixes, cfg_opts, cfg_val_map
     ))
 
+    if shuffle:
+        random.shuffle(cmds)
+    
     print("\n\n".join(cmds))
 
     if n_out_files > 0:

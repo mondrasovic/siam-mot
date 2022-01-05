@@ -61,7 +61,6 @@ MODEL:
     BG_IOU_THRESHOLD: 0.35
     SOLVER_TYPE: 'original'
     ADD_DEBUG: True
-    FREEZE_DORMANT: False
 
     EMM:
       TRACK_LOSS_WEIGHT: 1.

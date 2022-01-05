@@ -2,8 +2,12 @@ import maskrcnn_benchmark.data.transforms as T
 
 from .image_augmentation import ToTensor
 from .video_augmentation import (
-    SiamVideoColorJitter, SiamVideoCompressionAugment, SiamVideoMotionAugment,
-    SiamVideoMotionBlurAugment, SiamVideoRandomHorizontalFlip, SiamVideoResize,
+    SiamVideoColorJitter,
+    SiamVideoCompressionAugment,
+    SiamVideoMotionAugment,
+    SiamVideoMotionBlurAugment,
+    SiamVideoRandomHorizontalFlip,
+    SiamVideoResize,
     VideoTransformer,
 )
 
@@ -20,12 +24,12 @@ def build_siam_augmentation(cfg, is_train=True, modality='video'):
         contrast = cfg.INPUT.CONTRAST
         saturation = cfg.INPUT.SATURATION
         hue = cfg.INPUT.HUE
-        
+
         if modality == 'image':
             motion_limit = cfg.INPUT.MOTION_LIMIT
             motion_blur_prob = cfg.INPUT.MOTION_BLUR_PROB
             compression_limit = cfg.INPUT.COMPRESSION_LIMIT
-    
+
     else:
         min_size = cfg.INPUT.MIN_SIZE_TEST
         max_size = cfg.INPUT.MAX_SIZE_TEST
@@ -34,22 +38,22 @@ def build_siam_augmentation(cfg, is_train=True, modality='video'):
         contrast = 0.0
         saturation = 0.0
         hue = 0.0
-    
+
     amodal = cfg.INPUT.AMODAL
     SIZE_DIVISIBILITY = cfg.DATALOADER.SIZE_DIVISIBILITY
     to_bgr255 = cfg.INPUT.TO_BGR255
-    
+
     video_color_jitter = SiamVideoColorJitter(
         brightness=brightness,
         contrast=contrast,
         saturation=saturation,
         hue=hue,
     )
-    
+
     normalize_transform = T.Normalize(
         mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD, to_bgr255=to_bgr255
     )
-    
+
     transform = Compose(
         [
             video_color_jitter,
@@ -71,12 +75,12 @@ def build_siam_augmentation(cfg, is_train=True, modality='video'):
 class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
-    
+
     def __call__(self, image, target=None):
         for t in self.transforms:
             image, target = t(image, target)
         return image, target
-    
+
     def __repr__(self):
         format_string = self.__class__.__name__ + "("
         for t in self.transforms:

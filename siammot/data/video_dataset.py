@@ -6,7 +6,8 @@ from typing import List
 import torch
 import torch.utils.data as data
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import (
-    AnnoEntity, GluonCVMotionDataset,
+    AnnoEntity,
+    GluonCVMotionDataset,
 )
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.image_list import to_image_list
@@ -15,11 +16,15 @@ from tqdm import tqdm
 
 
 class VideoDataset(data.Dataset):
-    
     def __init__(
-        self, dataset: GluonCVMotionDataset, sampling_interval=250,
+        self,
+        dataset: GluonCVMotionDataset,
+        sampling_interval=250,
         clip_len=1000,
-        is_train=True, frames_in_clip=2, transforms=None, filter_fn=None,
+        is_train=True,
+        frames_in_clip=2,
+        transforms=None,
+        filter_fn=None,
         amodal=False
     ):
         """
@@ -34,37 +39,37 @@ class VideoDataset(data.Dataset):
         :param filter_fn: a callable function to filter entities
         :param amodal: whether to clip the bounding box beyond image boundary
         """
-        
+
         if dataset is None:
             raise Exception(
                 'dataset should not be None. Call GluonCVMotionDataset to '
                 'construct dataset first.'
             )
-        
+
         assert is_train is True, "The dataset class only supports training"
         assert (2 >= frames_in_clip > 0), "frames_in_clip has to be 1 or 2"
-        
+
         self.data = dict(dataset.train_samples)
-        
+
         self.clip_len = clip_len
         self.transforms = transforms
         self.filter_fn = filter_fn
         self.frames_in_clip = min(clip_len, frames_in_clip)
-        
+
         # Process dataset to get all valid video clips
         self.clips = self.get_video_clips(
             sampling_interval_ms=sampling_interval
         )
         self.amodal = amodal
-    
+
     def __getitem__(self, item_id):
         video = []
         target = []
-        
+
         (sample_id, clip_frame_ids) = self.clips[item_id]
         video_info = self.data[sample_id]
         video_reader = video_info.get_data_reader()
-        
+
         # Randomly sampling self.frames_in_clip frames
         # And keep their relative temporal order
         rand_idxs = sorted(random.sample(clip_frame_ids, self.frames_in_clip))
@@ -76,19 +81,19 @@ class VideoDataset(data.Dataset):
                     entities, meta_data=video_info.metadata
                 )
             boxes = self.entity2target(im, entities)
-            
+
             video.append(im)
             target.append(boxes)
-        
+
         # Video clip-level augmentation
         if self.transforms is not None:
             video, target = self.transforms(video, target)
-        
+
         return video, target, sample_id
-    
+
     def __len__(self):
         return len(self.clips)
-    
+
     def get_video_clips(self, sampling_interval_ms=250):
         """
         Process the long videos to a small video chunk (with self.clip_len
@@ -118,9 +123,9 @@ class VideoDataset(data.Dataset):
                 # self.frames_in_clip annotating frames
                 if len(clip_frame_ids) >= self.frames_in_clip:
                     video_clips.append((sample_id, clip_frame_ids))
-        
+
         return video_clips
-    
+
     def entity2target(self, im: Image, entities: List[AnnoEntity]):
         """
         Wrap up the entity to maskrcnn-benchmark compatible format - BoxList
@@ -136,7 +141,7 @@ class VideoDataset(data.Dataset):
         #     int_label = int(next(iter(entity.labels.values())))
         #     assert int_label > 0
         #     int_labels.append(int_label)
-        
+
         boxes = torch.as_tensor(boxes).reshape(-1, 4)
         boxes = BoxList(boxes, im.size, mode='xywh').convert('xyxy')
         if not self.amodal:
@@ -145,7 +150,7 @@ class VideoDataset(data.Dataset):
             'labels', torch.as_tensor(int_labels, dtype=torch.int64)
         )
         boxes.add_field('ids', torch.as_tensor(ids, dtype=torch.int64))
-        
+
         return boxes
 
 
@@ -155,15 +160,14 @@ class VideoDatasetBatchCollator(object):
     returns the batched images and targets.
     This should be passed to the DataLoader
     """
-    
     def __init__(self, size_divisible=0):
         self.size_divisible = size_divisible
-    
+
     def __call__(self, batch):
         transposed_batch = list(zip(*batch))
         image_batch = list(itertools.chain(*transposed_batch[0]))
         image_batch = to_image_list(image_batch, self.size_divisible)
-        
+
         # to make sure that the id of each instance
         # are unique across the whole batch
         targets = transposed_batch[1]
@@ -182,28 +186,23 @@ class VideoDatasetBatchCollator(object):
                             uid += 1
                         _uids[i] = video_id_map[video_id][_id]
                     targets_per_video_frame.extra_fields['ids'] = _uids
-        
+
         targets = list(itertools.chain(*targets))
-        
+
         return image_batch, targets, video_ids
 
 
 if __name__ == "__main__":
-    
+
     from siammot.data.adapters.utils.data_utils import load_dataset_anno
-    
-    
+
     torch.manual_seed(0)
-    
+
     dataset_anno, dataset_info = load_dataset_anno('MOT17')
     collator = VideoDatasetBatchCollator()
-    
-    dataset = VideoDataset(
-        dataset_anno,
-        frames_in_clip=2,
-        amodal=True
-    )
-    
+
+    dataset = VideoDataset(dataset_anno, frames_in_clip=2, amodal=True)
+
     batch_size = 16
     sampler = torch.utils.data.sampler.RandomSampler(dataset)
     batch_sampler = torch.utils.data.sampler.BatchSampler(
@@ -216,8 +215,7 @@ if __name__ == "__main__":
         collate_fn=collator
     )
     import time
-    
-    
+
     tic = time.time()
     for iteration, (image, target, image_ids) in enumerate(dataloader):
         data_time = time.time() - tic

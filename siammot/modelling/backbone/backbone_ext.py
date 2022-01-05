@@ -20,12 +20,10 @@ def build_dla_fpn_backbone(cfg):
     in_channels_stage4 = cfg.MODEL.DLA.DLA_STAGE4_OUT_CHANNELS
     in_channels_stage5 = cfg.MODEL.DLA.DLA_STAGE5_OUT_CHANNELS
     out_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
-    
+
     fpn = fpn_module.FPN(
         in_channels_list=[
-            in_channels_stage2,
-            in_channels_stage3,
-            in_channels_stage4,
+            in_channels_stage2, in_channels_stage3, in_channels_stage4,
             in_channels_stage5
         ],
         out_channels=out_channels,

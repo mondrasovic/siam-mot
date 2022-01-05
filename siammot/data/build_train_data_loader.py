@@ -1,6 +1,7 @@
 import torch.utils.data
 from maskrcnn_benchmark.data.build import (
-    make_batch_data_sampler, make_data_sampler,
+    make_batch_data_sampler,
+    make_data_sampler,
 )
 from maskrcnn_benchmark.data.datasets.concat_dataset import ConcatDataset
 from maskrcnn_benchmark.utils.comm import get_world_size
@@ -16,11 +17,10 @@ def build_dataset(cfg):
     dataset_list = cfg.DATASETS.TRAIN
     if not isinstance(dataset_list, (list, tuple)):
         raise RuntimeError(
-            "dataset_list should be a list of strings, got {}".format(
-                dataset_list
-            )
+            "dataset_list should be a list of strings, got {}".
+            format(dataset_list)
         )
-    
+
     datasets = []
     for dataset_key in dataset_list:
         dataset_anno, dataset_info = load_dataset_anno(cfg, dataset_key)
@@ -31,7 +31,7 @@ def build_dataset(cfg):
         data_filter_fn = build_data_filter_fn(
             dataset_key, is_train=True, dataset=dataset_anno
         )
-        
+
         if modality == 'image':
             assert 'image_folder' in dataset_info
             _dataset = ImageDataset(
@@ -52,15 +52,15 @@ def build_dataset(cfg):
                 amodal=cfg.INPUT.AMODAL
             )
         datasets.append(_dataset)
-    
+
     dataset = ConcatDataset(datasets)
-    
+
     return dataset
 
 
 def build_train_data_loader(cfg, is_distributed=False, start_iter=0):
     num_gpus = get_world_size()
-    
+
     video_clips_per_batch = cfg.SOLVER.VIDEO_CLIPS_PER_BATCH
     assert (
         video_clips_per_batch % num_gpus == 0
@@ -68,20 +68,23 @@ def build_train_data_loader(cfg, is_distributed=False, start_iter=0):
        "GPUs ({}) used.".format(
         video_clips_per_batch, num_gpus
     )
-    
+
     video_clips_per_gpu = video_clips_per_batch // num_gpus
-    
+
     dataset = build_dataset(cfg)
     num_iters = cfg.SOLVER.MAX_ITER
     sampler = make_data_sampler(dataset, True, is_distributed)
     batch_sampler = make_batch_data_sampler(
         dataset, sampler, [], video_clips_per_gpu, num_iters, start_iter
     )
-    
+
     num_workers = cfg.DATALOADER.NUM_WORKERS
     collator = VideoDatasetBatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY)
     data_loader = torch.utils.data.DataLoader(
-        dataset, num_workers=num_workers,
-        batch_sampler=batch_sampler, collate_fn=collator
+        dataset,
+        num_workers=num_workers,
+        batch_sampler=batch_sampler,
+        collate_fn=collator,
+        pin_memory=True
     )
     return data_loader

@@ -12,7 +12,7 @@ def build_data_filter_fn(dataset_key: str, *args, **kwargs):
     Get dataset specific filter function list, if there is any
     """
     filter_fn = None
-    
+
     if dataset_key == 'CRP':
         filter_fn = CRPFilter(*args, **kwargs)
     elif dataset_key.startswith('MOT'):
@@ -21,22 +21,25 @@ def build_data_filter_fn(dataset_key: str, *args, **kwargs):
         filter_fn = AOTFilter(*args, **kwargs)
     elif 'DETRAC' in dataset_key:
         filter_fn = UADETRACFilter(*args, **kwargs)
-    
+
     return filter_fn
 
 
 class BaseFilter:
     def __init__(self) -> None:
         pass
-    
+
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         return False
-    
+
     def filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         return self._filter(entity, ignored_gt_entities)
-    
+
     def __call__(
-        self, entities: List[AnnoEntity], ignored_entities=None, meta_data=None
+        self,
+        entities: List[AnnoEntity],
+        ignored_entities=None,
+        meta_data=None
     ):
         """
             Check each entity whether it is valid or should be filtered (
@@ -51,13 +54,13 @@ class BaseFilter:
             """
         valid_entities = []
         filtered_entities = []
-        
+
         for entity in entities:
             if self._filter(entity, ignored_entities):
                 filtered_entities.append(entity)
             else:
                 valid_entities.append(entity)
-        
+
         return valid_entities, filtered_entities
 
 
@@ -68,7 +71,6 @@ class CRPFilter(BaseFilter):
         A predicted entity will be filtered (ignored) if it is matched to a
         ignored ground truth entity
         """
-    
     def __init__(self, iou_thresh=0.2, is_train=False, **kwargs) -> None:
         """
         :param iou_thresh: a predicted entity which overlaps with any ignored
@@ -76,7 +78,7 @@ class CRPFilter(BaseFilter):
          iou_thresh would be filtered
         """
         self.iou_thresh = iou_thresh
-    
+
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             if entity.id < 0:
@@ -95,7 +97,6 @@ class MOTFilter(BaseFilter):
     A predicted entity will be filtered (ignored) if it is matched to a
     ignored ground truth entity
     """
-    
     def __init__(
         self,
         visibility_thresh=0.1,
@@ -106,7 +107,7 @@ class MOTFilter(BaseFilter):
         self.visibility_thresh = visibility_thresh
         self.iou_thresh = iou_thresh
         self.is_train = is_train
-    
+
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             if self.is_train:
@@ -134,7 +135,6 @@ class AOTFilter(BaseFilter):
       1. tracking id is not Helicopter1 or Airplane1
       2. range distance is larger than 1200
     """
-    
     def __init__(
         self,
         range_distance_thresh=1200,
@@ -145,17 +145,17 @@ class AOTFilter(BaseFilter):
         self.range_distance_thresh = range_distance_thresh
         self.iou_thresh = iou_thresh
         self.is_train = is_train
-    
+
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if ignored_gt_entities is None:
             range_distance_m = np.inf
             if 'range_distance_m' in entity.blob:
                 range_distance_m = entity.blob['range_distance_m']
-            
+
             labels = []
             if entity.labels is not None:
                 labels = entity.labels
-            
+
             if ('intruder' not in labels) or \
                 (range_distance_m >= self.range_distance_thresh):
                 return True
@@ -188,16 +188,16 @@ class UADETRACFilter(BaseFilter):
             boxes = data_sample.metadata['ignored_regions']
             boxes = self.xywh_boxes_to_xyxy_np_array(boxes)
             self.ignored_regions[sample_name] = boxes
-    
+
     def _filter(self, entity: AnnoEntity, ignored_gt_entities=None) -> bool:
         if entity.id < 0:
             return True
-        
+
         if not self.is_train:
             ignored_boxes = self.ignored_regions[entity.blob['sample_name']]
             if len(ignored_boxes) == 0:
                 return False
-            
+
             box = self.xywh_boxes_to_xyxy_np_array(entity.bbox)
             area_ratios = self.intersection_over_area(box, ignored_boxes)
             if np.any(area_ratios >= self.ignored_region_overlap_thresh):
@@ -210,19 +210,17 @@ class UADETRACFilter(BaseFilter):
             #             return True
 
         return False
-    
+
     @staticmethod
     def xywh_boxes_to_xyxy_np_array(boxes):
         boxes = np.atleast_2d(np.asfarray(boxes))
         boxes[:, 2:] += boxes[:, :2]
 
         return boxes
-    
+
     @staticmethod
     def intersection_over_area(
-        box: np.ndarray,
-        boxes: np.ndarray,
-        eps: float = 1e-8
+        box: np.ndarray, boxes: np.ndarray, eps: float = 1e-8
     ) -> np.ndarray:
         assert (box.ndim == 2) and (box.shape[0] == 1)
         assert (boxes.ndim == 2) and (boxes.shape[1] == 4)
@@ -231,7 +229,7 @@ class UADETRACFilter(BaseFilter):
 
         coords_tl = np.maximum(boxes[:, :2], box[..., :2])
         coords_br = np.minimum(boxes[:, 2:], box[..., 2:])
-        
+
         wh = (coords_br - coords_tl).clip(min=0)
         intersect_areas = wh[:, 0] * wh[:, 1]
         box_area = np.prod(box[0, 2:] - box[0, :2])

@@ -19,7 +19,6 @@ from ..utils.boxlists_to_entities import (
     boxlists_to_entities,
     convert_given_detections_to_boxlist,
 )
-from siammot.modelling.reid.reid_man import build_or_get_existing_reid_manager
 from siammot.modelling.track_head.track_solver_debug import (
     build_or_get_existing_track_solver_debugger
 )
@@ -37,7 +36,7 @@ def build_inverse_tensor_to_pil_transform(cfg):
         img = Image.fromarray(img)
 
         return img
-    
+
     return _img_tensor_to_pil
 
 
@@ -65,9 +64,7 @@ def do_inference(
     logger = logging.getLogger(__name__)
     model.eval()
     gpu_device = torch.device('cuda')
-    
-    reid_manager = build_or_get_existing_reid_manager(cfg)
-    reid_manager.reset()
+
     inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
 
     add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
@@ -78,7 +75,7 @@ def do_inference(
         solver_debugger.sample_height = sample.height
 
     video_loader = build_video_loader(cfg, sample, transforms)
-    
+
     sample_name = sample.id
     sample_result = DataSample(
         sample_name, raw_info=None, metadata=sample.metadata
@@ -90,9 +87,6 @@ def do_inference(
         timestamps = torch.squeeze(timestamps, dim=0).tolist()
         video_clip = torch.squeeze(video_clip, dim=0)
 
-        frame_orig = inverse_img_transform(video_clip)
-        reid_manager.add_next_frame(frame_orig)
-
         frame_detection = None
         # used the public provided detection (e.g. MOT17, HiEve)
         # the public detection needs to be ingested to DataSample
@@ -103,16 +97,14 @@ def do_inference(
                 frame_id
             )
             frame_detection = convert_given_detections_to_boxlist(
-                frame_detection,
-                sample.width,
-                sample.height
+                frame_detection, sample.width, sample.height
             )
             frame_height, frame_width = video_clip.shape[-2:]
             frame_detection = frame_detection.resize(
                 (frame_width, frame_height)
             )
             frame_detection = [frame_detection.to(gpu_device)]
-        
+
         with torch.no_grad():
             video_clip = video_clip.to(gpu_device)
             torch.cuda.synchronize()
@@ -120,23 +112,23 @@ def do_inference(
             output_boxlists = model(video_clip, given_detection=frame_detection)
             torch.cuda.synchronize()
             network_time += time.time() - network_start_time
-        
+
         # Resize to original image size and to xywh mode
         output_boxlists = [
             o.resize([sample.width, sample.height]).convert('xywh')
-            for o in output_boxlists]
+            for o in output_boxlists
+        ]
         output_boxlists = [o.to(torch.device("cpu")) for o in output_boxlists]
         output_entities = boxlists_to_entities(
             output_boxlists, frame_id, timestamps, sample_name
         )
         for entity in output_entities:
             sample_result.add_entity(entity)
-        
-        reid_manager.increment_frame_idx()
-    
+
     logger.info(
         'Sample_id {} / Speed {} fps'.format(
-            sample.id, len(sample) / (network_time)
+            sample.id,
+            len(sample) / (network_time)
         )
     )
 
@@ -147,7 +139,7 @@ def do_inference(
         else:
             file_path = file_name
         solver_debugger.save_to_file(file_path)
-    
+
     return sample_result
 
 
@@ -162,9 +154,9 @@ class DatasetInference(object):
         public_detection=None,
         distributed=False,
         motsummary_csv_file_name=None
-    ): 
+    ):
         self._cfg = cfg
-        
+
         self._transform = build_siam_augmentation(cfg, is_train=False)
         self._model = model
         self._dataset = dataset
@@ -178,18 +170,19 @@ class DatasetInference(object):
         self._motsummary_csv_file_name = motsummary_csv_file_name
 
         self.results = dict()
-    
+
     def _eval_det_ap(self):
         from ..eval.eval_det_ap import eval_det_ap
         iou_threshold = np.arange(0.5, 0.95, 0.05).tolist()
         # TODO Supply class table.
         ap_matrix = eval_det_ap(
-            self._dataset, self.results,
+            self._dataset,
+            self.results,
             data_filter_fn=self._data_filter_fn,
             iou_threshold=iou_threshold
         )
         ap = np.mean(ap_matrix, axis=0)
-        
+
         ap_str_summary = "\n"
         ap_str_summary += 'Detection AP @[ IoU=0.50:0.95 ] = {:.2f}\n'.format(
             np.mean(ap) * 100
@@ -200,20 +193,19 @@ class DatasetInference(object):
         ap_str_summary += 'Detection AP @[ IoU=0.75 ] = {:.2f}\n'.format(
             ap[5] * 100
         )
-        
+
         return ap, ap_str_summary
-    
+
     def _eval_clear_mot(self):
         motmetric, motsummary, motstrsummary = eval_clears_mot(
-            self._dataset, self.results,
-            data_filter_fn=self._data_filter_fn
+            self._dataset, self.results, data_filter_fn=self._data_filter_fn
         )
         return motmetric, motsummary, motstrsummary
-    
+
     def _inference_on_video(self, sample):
         cache_path = os.path.join(self._output_dir, '{}.json'.format(sample.id))
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        
+
         if os.path.exists(cache_path):
             sample_result = DataSample.load(cache_path)
         else:
@@ -221,14 +213,16 @@ class DatasetInference(object):
             if self._pub_detection:
                 given_detection = self._pub_detection[sample.id]
             sample_result = do_inference(
-                self._cfg, self._model, sample,
+                self._cfg,
+                self._model,
+                sample,
                 transforms=self._transform,
                 given_detection=given_detection,
                 output_dir_path=self._output_dir
             )
             sample_result.dump(cache_path)
         return sample_result
-    
+
     def _postprocess_tracks(self, tracks: DataSample):
         """
         post_process the tracks to filter out short and non-confident tracks
@@ -239,7 +233,7 @@ class DatasetInference(object):
         for _entity in tracks.entities:
             if (_entity.id not in track_ids) and (_entity.id >= 0):
                 track_ids.add(_entity.id)
-        
+
         filter_tracks = tracks.get_copy_without_entities()
         for _id in track_ids:
             _id_entities = tracks.get_entities_with_id(_id)
@@ -251,24 +245,24 @@ class DatasetInference(object):
                 for _entity in _id_entities:
                     filter_tracks.add_entity(_entity)
         return filter_tracks
-    
+
     def __call__(self):
         # TODO: Enable the inference in an efficient distributed framework.
         for _, sample in tqdm(self._dataset):
             # clean up the memory
             self._model.reset_siammot_status()
-            
+
             sample_result = self._inference_on_video(sample)
-            
+
             sample_result = self._postprocess_tracks(sample_result)
             self.results.update({sample.id: sample_result})
-        
+
         self._logger.info(
             "\n---------------- Start evaluating ----------------\n"
         )
         _, motsummary, motstrsummary = self._eval_clear_mot()
         self._logger.info(motstrsummary)
-        
+
         self._logger.info(
             "\n---------------- Finish evaluating ----------------\n"
         )
