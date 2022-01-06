@@ -1,0 +1,28 @@
+{
+    "train_dir_path": "./demos/models/uadt_orig/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
+    "dataset_name": "UA_DETRAC",
+    "data_subset": "test",
+    "output_root_path": "./eval_orig",
+    "csv_file_name": "eval_results.csv",
+    "model_suffixes": [
+        "0040000",
+        "0030000",
+        "0050000",
+        "0020000",
+        "0010000",
+        "0060000"
+    ],
+    "cfg_opts_groups": [
+        [
+            [
+                "MODEL.TRACK_HEAD.USE_ATTENTION",
+                "False"
+            ]
+        ]
+    ],
+    "cfg_val_map": {
+        "True": "attention_inc",
+        "False": "no_attention"
+    }
+}
