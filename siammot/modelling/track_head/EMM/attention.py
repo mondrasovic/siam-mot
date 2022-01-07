@@ -302,17 +302,14 @@ class FeatureChannelAttention(nn.Module):
         return template_coefs, sr_coefs
 
 
-def build_feature_channel_attention(cfg: CfgNode) -> FeatureChannelAttention:
-    n_feature_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
-    query_key_dim = cfg.MODEL.TRACK_HEAD.ATT_QUERY_KEY_DIM
-    value_dim = cfg.MODEL.TRACK_HEAD.ATT_VALUE_DIM
-    softamx_temperature = cfg.MODEL.TRACK_HEAD.ATT_SOFTMAX_TEMP
-
-    attention = FeatureChannelAttention(
-        n_feature_channels,
-        query_key_dim=query_key_dim,
-        value_dim=value_dim,
-        softmax_temperature=softamx_temperature
-    )
+def build_attention(cfg: CfgNode) -> FeatureChannelAttention:
+    if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
+        n_feature_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
+        n_query_key_channels = n_feature_channels // 2  # TODO Use config.
+        attention = DeformableSiameseAttention(
+            n_feature_channels, n_query_key_channels
+        )
+    else:
+        attention = NoAttention()
 
     return attention

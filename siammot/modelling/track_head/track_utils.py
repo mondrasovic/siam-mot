@@ -55,7 +55,7 @@ class TrackUtils(object):
             idxs = np.arange(0, batch_size)
             idxs[even_idx] = idxs[even_idx] + 1
             idxs[odd_idx] = idxs[odd_idx] - 1
-            idxs = torch.tensor(idxs)
+            idxs = torch.tensor(idxs).long()
 
             return x[idxs]
 
