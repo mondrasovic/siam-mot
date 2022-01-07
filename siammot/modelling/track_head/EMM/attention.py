@@ -97,7 +97,6 @@ class FeatureChannelAttention(nn.Module):
         values_weighted = torch.matmul(weights, values)  # [N,D2]
 
         attention_coefs = self.final_mapper(values_weighted)  # [N,C*2]
-        attention_coefs = F.sigmoid(attention_coefs)  # [N,C*2]
 
         template_coefs, sr_coefs = torch.split(
             attention_coefs, attention_coefs.shape[-1] // 2, dim=1

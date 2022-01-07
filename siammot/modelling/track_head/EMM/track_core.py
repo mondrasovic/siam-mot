@@ -67,9 +67,9 @@ class EMM(torch.nn.Module):
                 template_features, sr_features
             )
             template_features_weighted = (
-                template_features * template_attention[..., None, None]
+                template_features + template_attention[..., None, None]
             )
-            sr_features_weighted = sr_features * sr_attention[..., None, None]
+            sr_features_weighted = sr_features + sr_attention[..., None, None]
 
         response_map = xcorr_depthwise(
             sr_features_weighted, template_features_weighted

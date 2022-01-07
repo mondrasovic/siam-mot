@@ -26,26 +26,40 @@ def build_latex_table_doc(results_file):
             'idf1': 'IDF1',
             'mota': 'MOTA',
             'motp': 'MOTP'
-        }, inplace=True
+        },
+        inplace=True
     )
 
     model_dir = results_file.parent.parent
-    solver_dir = model_dir.parent
-    loss_dir = solver_dir.parent
-    dataset_dir = loss_dir.parent
+    attention_dir = model_dir.parent
+    dataset_dir = attention_dir.parent
 
     model = model_dir.stem
-    solver = {'orig': 'Original', 'fNMS': 'Feature-NMS'}[solver_dir.stem]
-    loss = {'none': 'None', 'contr': 'Contrastive', 'tripl': 'Triplet'}[
-        loss_dir.stem
-    ]
+    attention = {
+        'attention_inc': 'Attention Included',
+        'no_attention': 'No Attention'
+    }[attention_dir.stem]
+    # model_dir = results_file.parent.parent
+    # solver_dir = model_dir.parent
+    # loss_dir = solver_dir.parent
+    # dataset_dir = loss_dir.parent
+
+    # model = model_dir.stem
+    # solver = {'orig': 'Original', 'fNMS': 'Feature-NMS'}[solver_dir.stem]
+    # loss = {'none': 'None', 'contr': 'Contrastive', 'tripl': 'Triplet'}[
+    #     loss_dir.stem
+    # ]
     dataset = {'uadt': 'UA-DETRAC'}[dataset_dir.stem]
 
     caption = (
         'Siam-MOT Evaluation Report --- ' +
-        f'Dataset: {dataset}, Embedding Loss: {loss}, ' +
-        f'Solver: {solver}, Model: {model}'
+        f'Dataset: {dataset}, Attention: {attention}, Model: {model}'
     )
+    # caption = (
+    #     'Siam-MOT Evaluation Report --- ' +
+    #     f'Dataset: {dataset}, Embedding Loss: {loss}, ' +
+    #     f'Solver: {solver}, Model: {model}'
+    # )
     table = df.to_latex(bold_rows=True, caption=caption)
     content = r'''\documentclass{article}
 
@@ -66,12 +80,18 @@ def build_latex_table_doc(results_file):
 
 @click.command()
 @click.option(
-    '-p', '--results-patt', default='eval_results.csv', show_default=True,
+    '-p',
+    '--results-patt',
+    default='eval_results.csv',
+    show_default=True,
     help="Results file name pattern."
 )
 @click.option(
-    '--report-file', default='results_table_report.pdf', show_default=True,
-    help="PDF report file name.")
+    '--report-file',
+    default='results_table_report.pdf',
+    show_default=True,
+    help="PDF report file name."
+)
 def main(results_patt, report_file):
     search_patt = f'./{results_patt}'
     for results_file in pathlib.Path('.').rglob(search_patt):
@@ -94,7 +114,7 @@ def main(results_patt, report_file):
             dst_pdf_file.unlink()
         shutil.move(str(src_pdf_file), str(dst_pdf_file))
         shutil.rmtree(str(tmp_dir))
-    
+
     return 0
 
 

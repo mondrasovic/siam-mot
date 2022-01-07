@@ -1,8 +1,8 @@
-train_process_pid=128651
+train_process_pid=80885
 
 while ps -p $train_process_pid > /dev/null
 do
-    sleep 60
+    sleep 30
 done
 
 echo "Starting evaluation..."
