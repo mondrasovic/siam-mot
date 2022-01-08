@@ -15,17 +15,12 @@ class NoAttention(nn.Module):
 
 
 class SpatialSelfAttention(nn.Module):
-    def __init__(
-        self,
-        n_channels: int,
-        n_query_key_channels: int,
-        weight: float = 1.0
-    ) -> None:
+    def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
-        self.weight = weight
-
         assert n_channels >= n_query_key_channels
+
+        self.weight = nn.Parameter(torch.zeros(1))
 
         self.conv_query = self._build_conv1x1(n_channels, n_query_key_channels)
         self.conv_key = self._build_conv1x1(n_channels, n_query_key_channels)
@@ -60,10 +55,10 @@ class SpatialSelfAttention(nn.Module):
 
 
 class ChannelSelfAttention(nn.Module):
-    def __init__(self, weight: float = 1.0) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
-        self.weight = weight
+        self.weight = nn.Parameter(torch.zeros(1))
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         query = features  # [B,C,H,W]
@@ -75,8 +70,8 @@ class ChannelSelfAttention(nn.Module):
         value = value.flatten(start_dim=2)  # [B,C,N]
 
         key = torch.transpose(key, 1, 2)  # [B,N,C]
-        attention_map = torch.bmm(query, key)  # [B,C,C]
-        attention_map = F.softmax(attention_map, dim=1)  # [B,C,C]
+        energy = torch.bmm(query, key)  # [B,C,C]
+        attention_map = F.softmax(energy, dim=1)  # [B,C,C]
 
         features_flat = features.flatten(start_dim=2)  # [B,C,N]
         channel_attention = (
@@ -90,19 +85,13 @@ class ChannelSelfAttention(nn.Module):
 
 
 class SelfAttention(nn.Module):
-    def __init__(
-        self,
-        n_channels: int,
-        n_query_key_channels: int,
-        spatial_attention_weight: float = 1.0,
-        channel_attention_weight: float = 1.0
-    ) -> None:
+    def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
         self.spatial_attention = SpatialSelfAttention(
-            n_channels, n_query_key_channels, spatial_attention_weight
+            n_channels, n_query_key_channels
         )
-        self.channel_attention = ChannelSelfAttention(channel_attention_weight)
+        self.channel_attention = ChannelSelfAttention()
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         spatial_attention_bias = self.spatial_attention(features)
@@ -113,10 +102,10 @@ class SelfAttention(nn.Module):
 
 
 class CrossAttention(nn.Module):
-    def __init__(self, weight: float = 1.0) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
-        self.weight = weight
+        self.weight = nn.Parameter(torch.zeros(1))
 
     def forward(
         self, src_features: torch.Tensor, dst_features: torch.Tensor
@@ -127,8 +116,8 @@ class CrossAttention(nn.Module):
         dst_features_flat = dst_features.flatten(start_dim=2)  # [B,C,N]
 
         src_features_t = torch.transpose(src_features_flat, 1, 2)  # [B,N,C]
-        attention_map = torch.bmm(src_features_flat, src_features_t)  # [B,C,C]
-        attention_map = F.softmax(attention_map, dim=1)  # [B,C,C]
+        energy = torch.bmm(src_features_flat, src_features_t)  # [B,C,C]
+        attention_map = F.softmax(energy, dim=1)  # [B,C,C]
 
         src_attention = (
             self.weight * torch.bmm(attention_map, dst_features_flat) +
@@ -140,30 +129,15 @@ class CrossAttention(nn.Module):
 
 
 class DeformableSiameseAttention(nn.Module):
-    def __init__(
-        self,
-        n_channels: int,
-        n_query_key_channels: int,
-        spatial_attention_weight: float = 1.0,
-        channel_attention_weight: float = 1.0,
-        cross_attention_weight: float = 1.0
-    ) -> None:
+    def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
         self.template_self_attention = SelfAttention(
-            n_channels, n_query_key_channels, spatial_attention_weight,
-            channel_attention_weight
+            n_channels, n_query_key_channels
         )
-        self.sr_self_attention = SelfAttention(
-            n_channels, n_query_key_channels, spatial_attention_weight,
-            channel_attention_weight
-        )
-        self.sr_to_template_cross_attention = CrossAttention(
-            cross_attention_weight
-        )
-        self.template_to_sr_cross_attention = CrossAttention(
-            cross_attention_weight
-        )
+        self.sr_self_attention = SelfAttention(n_channels, n_query_key_channels)
+        self.sr_to_template_cross_attention = CrossAttention()
+        self.template_to_sr_cross_attention = CrossAttention()
 
         self.template_deform_conv = self._build_deform_conv3x3(n_channels)
         self.sr_deform_conv = self._build_deform_conv3x3(n_channels)

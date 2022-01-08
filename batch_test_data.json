@@ -1,9 +1,9 @@
 {
-    "train_dir_path": "./demos/models/uadt_attention_bias/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
+    "train_dir_path": "./demos/models/uadt_dsa/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
-    "output_root_path": "./eval_attention_bias",
+    "output_root_path": "./eval_dsa",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0040000",
@@ -22,7 +22,7 @@
         ]
     ],
     "cfg_val_map": {
-        "True": "attention_inc",
-        "False": "no_attention"
+        "True": "with_dsa",
+        "False": "without_dsa"
     }
 }
