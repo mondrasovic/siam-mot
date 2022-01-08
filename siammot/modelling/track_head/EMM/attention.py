@@ -1,20 +1,29 @@
+import abc
 from typing import Tuple
-import torch
 
+import torch
 from torch import nn
 from torch.nn import functional as F
 from yacs.config import CfgNode
 from maskrcnn_benchmark.layers.dcn.deform_conv_module import ModulatedDeformConvPack
 
 
-class NoAttention(nn.Module):
+class Attention(abc.ABC):
+    @abc.abstractmethod
+    def forward(
+        self, template_features: torch.Tensor, sr_features: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+
+class NoAttention(nn.Module, Attention):
     def forward(
         self, template_features: torch.Tensor, sr_features: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         return template_features, sr_features
 
 
-class SpatialSelfAttention(nn.Module):
+class SpatialAttention(nn.Module):
     def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
@@ -54,28 +63,34 @@ class SpatialSelfAttention(nn.Module):
         return nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
 
-class ChannelSelfAttention(nn.Module):
-    def __init__(self) -> None:
+class ChannelAttentionCalc(nn.Module):
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        features_flat = features.flatten(start_dim=2)  # [B,C,N], N = H * W
+
+        query = features_flat
+        key = features_flat
+
+        key = torch.transpose(key, 1, 2)  # [B,N,C]
+        energy = torch.bmm(query, key)  # [B,C,C]
+        channel_attention = F.softmax(energy, dim=1)  # [B,C,C]
+
+        return channel_attention
+
+
+class ChannelAttentionUse(nn.Module):
+    def __init__(self):
         super().__init__()
 
         self.weight = nn.Parameter(torch.zeros(1))
 
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        query = features  # [B,C,H,W]
-        key = features  # [B,C,H,W]
-        value = features  # [B,C,H,W]
-
-        query = query.flatten(start_dim=2)  # [B,C,N], N = H * W
-        key = key.flatten(start_dim=2)  # [B,C,N]
-        value = value.flatten(start_dim=2)  # [B,C,N]
-
-        key = torch.transpose(key, 1, 2)  # [B,N,C]
-        energy = torch.bmm(query, key)  # [B,C,C]
-        attention_map = F.softmax(energy, dim=1)  # [B,C,C]
-
+    def forward(
+        self, features: torch.Tensor, attention: torch.Tensor
+    ) -> torch.Tensor:
         features_flat = features.flatten(start_dim=2)  # [B,C,N]
+        value = features_flat
+
         channel_attention = (
-            self.weight * torch.bmm(attention_map, value) + features_flat
+            self.weight * torch.bmm(attention, value) + features_flat
         )  # [B,C,N]
         channel_attention = channel_attention.reshape(
             features.shape
@@ -84,60 +99,25 @@ class ChannelSelfAttention(nn.Module):
         return channel_attention
 
 
-class SelfAttention(nn.Module):
+class DeformableSiameseAttention(nn.Module, Attention):
     def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
-        self.spatial_attention = SpatialSelfAttention(
+        self.template_spatial_attention = SpatialAttention(
             n_channels, n_query_key_channels
         )
-        self.channel_attention = ChannelSelfAttention()
-
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        spatial_attention_bias = self.spatial_attention(features)
-        channel_attention_bias = self.channel_attention(features)
-        self_attention = spatial_attention_bias + channel_attention_bias
-
-        return self_attention
-
-
-class CrossAttention(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.weight = nn.Parameter(torch.zeros(1))
-
-    def forward(
-        self, src_features: torch.Tensor, dst_features: torch.Tensor
-    ) -> torch.Tensor:
-        src_features_flat = src_features.flatten(
-            start_dim=2
-        )  # [B,C,N], N = H * W
-        dst_features_flat = dst_features.flatten(start_dim=2)  # [B,C,N]
-
-        src_features_t = torch.transpose(src_features_flat, 1, 2)  # [B,N,C]
-        energy = torch.bmm(src_features_flat, src_features_t)  # [B,C,C]
-        attention_map = F.softmax(energy, dim=1)  # [B,C,C]
-
-        src_attention = (
-            self.weight * torch.bmm(attention_map, dst_features_flat) +
-            dst_features_flat
-        )  # [B,C,N]
-        src_attention = src_attention.reshape(dst_features.shape)  # [B,C,H,W]
-
-        return src_attention
-
-
-class DeformableSiameseAttention(nn.Module):
-    def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
-        super().__init__()
-
-        self.template_self_attention = SelfAttention(
+        self.sr_spatial_attention = SpatialAttention(
             n_channels, n_query_key_channels
         )
-        self.sr_self_attention = SelfAttention(n_channels, n_query_key_channels)
-        self.sr_to_template_cross_attention = CrossAttention()
-        self.template_to_sr_cross_attention = CrossAttention()
+
+        self.template_channel_attention_calc = ChannelAttentionCalc()
+        self.sr_channel_attention_calc = ChannelAttentionCalc()
+
+        self.template_channel_attention_use = ChannelAttentionUse()
+        self.sr_channel_attention_use = ChannelAttentionUse()
+
+        self.sr_to_template_cross_attention = ChannelAttentionUse()
+        self.template_to_sr_cross_attention = ChannelAttentionUse()
 
         self.template_deform_conv = self._build_deform_conv3x3(n_channels)
         self.sr_deform_conv = self._build_deform_conv3x3(n_channels)
@@ -145,23 +125,37 @@ class DeformableSiameseAttention(nn.Module):
     def forward(
         self, template_features: torch.Tensor, sr_features: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        template_self_attention_part = self.template_self_attention(
+        template_spatial_attention_final = self.template_spatial_attention(
             template_features
         )
-        template_cross_attention_part = self.sr_to_template_cross_attention(
-            sr_features, template_features
+        sr_spatial_attention_final = self.sr_spatial_attention(sr_features)
+
+        template_channel_attention = self.template_channel_attention_calc(
+            template_features
+        )
+        sr_channel_attention = self.sr_channel_attention_calc(sr_features)
+
+        template_channel_attention_final = self.template_channel_attention_use(
+            template_features, template_channel_attention
+        )
+        sr_channel_attention_final = self.sr_channel_attention_use(
+            sr_features, sr_channel_attention
         )
 
-        sr_self_attention_part = self.sr_self_attention(sr_features)
-        sr_cross_attention_part = self.template_to_sr_cross_attention(
-            template_features, sr_features
+        template_cross_attention_final = self.sr_to_template_cross_attention(
+            template_features, sr_channel_attention
+        )
+        sr_cross_attention_final = self.template_to_sr_cross_attention(
+            sr_features, template_channel_attention
         )
 
         attentional_template_features = self.template_deform_conv(
-            template_self_attention_part + template_cross_attention_part
+            template_spatial_attention_final +
+            template_channel_attention_final + template_cross_attention_final
         )
         attentional_sr_features = self.sr_deform_conv(
-            sr_self_attention_part + sr_cross_attention_part
+            sr_spatial_attention_final + sr_channel_attention_final +
+            sr_cross_attention_final
         )
 
         return attentional_template_features, attentional_sr_features
@@ -176,106 +170,7 @@ class DeformableSiameseAttention(nn.Module):
         )
 
 
-class AttentionEmbMapper(nn.Module):
-    def __init__(self, in_dim: int, hidden_dim: int, out_dim: int) -> None:
-        super().__init__()
-
-        self.fc1: nn.Module = nn.Linear(in_dim, hidden_dim, bias=False)
-        self.relu2: nn.Module = nn.ReLU(inplace=True)
-        self.fc3: nn.Module = nn.Linear(hidden_dim, out_dim, bias=False)
-
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        """Computes attention embedding. It maps input or context features into
-        an intermediate embedding space that will be used as part of the
-        attention mechanism.
-
-        Args:
-            features (torch.Tensor): Feature tensor of shape [N,C], where C is
-                the input dimension (no. of channels) specified in the
-                constructor.
-        Returns:
-            torch.Tensor: Feature embeddings of shape [N,E], where E is the
-                output (embedding) dimension specified in the constructor.
-        """
-        x = self.fc1(features)  # [N,H], where H is the hidden layer size.
-        x = self.relu2(x)  # [N,H]
-        x = self.fc3(x)  # [N,E]
-
-        return x
-
-
-class FeatureChannelAttention(nn.Module):
-    def __init__(
-        self,
-        n_feature_channels: int,
-        *,
-        query_key_dim: int = 128,
-        value_dim: int = 256,
-        softmax_temperature: float = 0.01,
-    ) -> None:
-        super().__init__()
-
-        self.query_mapper: nn.Module = AttentionEmbMapper(
-            n_feature_channels, query_key_dim, query_key_dim
-        )
-        self.key_mapper: nn.Module = AttentionEmbMapper(
-            n_feature_channels, query_key_dim, query_key_dim
-        )
-        self.value_mapper: nn.Module = AttentionEmbMapper(
-            n_feature_channels, value_dim, value_dim
-        )
-        self.final_mapper: nn.Module = AttentionEmbMapper(
-            value_dim, value_dim, n_feature_channels * 2
-        )
-
-        self.softmax_scale: float = (
-            1.0 / (softmax_temperature * (n_feature_channels**0.5))
-        )
-
-    def forward(
-        self, template_features: torch.Tensor, sr_features: torch.Tensor
-    ) -> torch.Tensor:
-        """Computes attention weight coefficients for the given template and
-        search region features.
-
-        Args:
-            template_features (torch.Tensor): Template features of shape
-                [N,C,T,T], where N is the batch size (no. of images) multiplied
-                by the no. of proposals per image.
-            sr_features (torch.Tensor): Search region features of shape
-                [N,C,S,S], where N is the batch size (no. of images) multiplied
-                by the no. of proposals per image, and S >= T.
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple of weight coefficients from
-            the <0, 1> interval of shape [N,C], i.e., ([N,C], [N,C]), for both
-            template and search region features.
-        """
-        # Apply global average pooling (GAP).
-        template_features = torch.mean(template_features, dim=(2, 3))  # [N,C]
-        sr_features = torch.mean(sr_features, dim=(2, 3))  # [N,C]
-
-        queries = self.query_mapper(template_features)  # [N,D1]
-        keys = self.key_mapper(sr_features)  # [N,D1]
-        values = self.value_mapper(sr_features)  # [N,D2]
-
-        queries = F.normalize(queries, dim=1)  # [N,D1]
-        keys = F.normalize(keys, dim=1)  # [N,D1]
-
-        weights = torch.matmul(queries, keys.T)  # [N,N]
-        weights = F.softmax(weights * self.softmax_scale, dim=1)  # [N,N]
-
-        values_weighted = torch.matmul(weights, values)  # [N,D2]
-
-        attention_coefs = self.final_mapper(values_weighted)  # [N,C*2]
-
-        template_coefs, sr_coefs = torch.split(
-            attention_coefs, attention_coefs.shape[-1] // 2, dim=1
-        )  # ([N,C], [N,C])
-
-        return template_coefs, sr_coefs
-
-
-def build_attention(cfg: CfgNode) -> FeatureChannelAttention:
+def build_attention(cfg: CfgNode) -> Attention:
     if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
         attention = DeformableSiameseAttention(
             cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
