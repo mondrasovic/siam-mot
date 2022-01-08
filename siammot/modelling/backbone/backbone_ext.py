@@ -43,4 +43,15 @@ def build_backbone(cfg):
         "registry".format(
             cfg.MODEL.BACKBONE.CONV_BODY
         )
-    return registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
+    backbone = registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
+
+    # TODO Add freezing option into the configuration.
+    freeze_dla_level(backbone.body.level0)
+    freeze_dla_level(backbone.body.level1)
+
+    return backbone
+
+
+def freeze_dla_level(level_model):
+    for param in level_model.parameters():
+        param.requires_grad = False

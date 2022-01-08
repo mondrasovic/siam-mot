@@ -25,6 +25,8 @@ class SpatialSelfAttention(nn.Module):
 
         self.weight = weight
 
+        assert n_channels >= n_query_key_channels
+
         self.conv_query = self._build_conv1x1(n_channels, n_query_key_channels)
         self.conv_key = self._build_conv1x1(n_channels, n_query_key_channels)
         self.conv_value = self._build_conv1x1(n_channels, n_channels)
@@ -42,8 +44,9 @@ class SpatialSelfAttention(nn.Module):
         attention_map = torch.bmm(query, key)  # [B,N,N]
         attention_map = F.softmax(attention_map, dim=0)  # [B,N,N]
 
+        features_flat = features.flatten(start_dim=2)  # [B,C,N]
         spatial_attention = (
-            self.weight * torch.bmm(value, attention_map)
+            self.weight * torch.bmm(value, attention_map) + features_flat
         )  # [B,C,N]
         spatial_attention = spatial_attention.reshape(
             features.shape
@@ -75,8 +78,9 @@ class ChannelSelfAttention(nn.Module):
         attention_map = torch.bmm(query, key)  # [B,C,C]
         attention_map = F.softmax(attention_map, dim=1)  # [B,C,C]
 
+        features_flat = features.flatten(start_dim=2)  # [B,C,N]
         channel_attention = (
-            self.weight * torch.bmm(attention_map, value)
+            self.weight * torch.bmm(attention_map, value) + features_flat
         )  # [B,C,N]
         channel_attention = channel_attention.reshape(
             features.shape
@@ -127,7 +131,8 @@ class CrossAttention(nn.Module):
         attention_map = F.softmax(attention_map, dim=1)  # [B,C,C]
 
         src_attention = (
-            self.weight * torch.bmm(attention_map, dst_features_flat)
+            self.weight * torch.bmm(attention_map, dst_features_flat) +
+            dst_features_flat
         )  # [B,C,N]
         src_attention = src_attention.reshape(dst_features.shape)  # [B,C,H,W]
 
@@ -166,30 +171,24 @@ class DeformableSiameseAttention(nn.Module):
     def forward(
         self, template_features: torch.Tensor, sr_features: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        template_self_attention_bias = self.template_self_attention(
+        template_self_attention_part = self.template_self_attention(
             template_features
         )
-        template_cross_attention_bias = self.sr_to_template_cross_attention(
+        template_cross_attention_part = self.sr_to_template_cross_attention(
             sr_features, template_features
         )
 
-        sr_self_attention_bias = self.sr_self_attention(sr_features)
-        sr_cross_attention_bias = self.template_to_sr_cross_attention(
+        sr_self_attention_part = self.sr_self_attention(sr_features)
+        sr_cross_attention_part = self.template_to_sr_cross_attention(
             template_features, sr_features
         )
 
-        attentional_template_features = (
-            template_features + template_self_attention_bias +
-            template_cross_attention_bias
-        )
-        attentional_sr_features = (
-            sr_features + sr_self_attention_bias + sr_cross_attention_bias
-        )
-
         attentional_template_features = self.template_deform_conv(
-            attentional_template_features
+            template_self_attention_part + template_cross_attention_part
         )
-        attentional_sr_features = self.sr_deform_conv(attentional_sr_features)
+        attentional_sr_features = self.sr_deform_conv(
+            sr_self_attention_part + sr_cross_attention_part
+        )
 
         return attentional_template_features, attentional_sr_features
 
@@ -304,10 +303,9 @@ class FeatureChannelAttention(nn.Module):
 
 def build_attention(cfg: CfgNode) -> FeatureChannelAttention:
     if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
-        n_feature_channels = cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS
-        n_query_key_channels = n_feature_channels // 2  # TODO Use config.
         attention = DeformableSiameseAttention(
-            n_feature_channels, n_query_key_channels
+            cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
+            cfg.MODEL.TRACK_HEAD.N_QUERY_KEY_CHANNELS
         )
     else:
         attention = NoAttention()
