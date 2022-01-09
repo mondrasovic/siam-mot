@@ -32,6 +32,7 @@ MODEL:
 
   BACKBONE:
     CONV_BODY: "DLA-34-FPN"
+    N_FIRST_LEVELS_FROZEN: 2
   
   RPN:
     USE_FPN: True

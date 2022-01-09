@@ -4,6 +4,7 @@ from yacs.config import CfgNode as CN
 # default detector config (Rewrite some of them in cfg)
 cfg.MODEL.META_ARCHITECTURE = 'GeneralizedRCNN'
 cfg.MODEL.BACKBONE.CONV_BODY = 'DLA-34-FPN'
+cfg.MODEL.BACKBONE.N_FIRST_LEVELS_FROZEN = 0
 
 cfg.MODEL.RPN.USE_FPN = True
 cfg.MODEL.RPN.ANCHOR_STRIDE = (4, 8, 16, 32, 64)

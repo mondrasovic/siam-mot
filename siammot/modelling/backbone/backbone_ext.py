@@ -4,6 +4,7 @@ import maskrcnn_benchmark.modeling.backbone.fpn as fpn_module
 from maskrcnn_benchmark.modeling import registry
 from maskrcnn_benchmark.modeling.make_layers import conv_with_kaiming_uniform
 from torch import nn
+from yacs.config import CfgNode
 
 from .dla import dla
 
@@ -45,11 +46,16 @@ def build_backbone(cfg):
         )
     backbone = registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
 
-    # TODO Add freezing option into the configuration.
-    freeze_dla_level(backbone.body.level0)
-    freeze_dla_level(backbone.body.level1)
+    freeze_dla_levels_if_needed(cfg, backbone)
 
     return backbone
+
+
+def freeze_dla_levels_if_needed(cfg: CfgNode, backbone) -> None:
+    n_levels_frozen = cfg.MODEL.BACKBONE.N_FIRST_LEVELS_FROZEN
+    for i in range(0, n_levels_frozen):
+        level_model = getattr(backbone.body, f'level{i}')
+        freeze_dla_level(level_model)
 
 
 def freeze_dla_level(level_model):
