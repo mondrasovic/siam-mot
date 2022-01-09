@@ -48,7 +48,6 @@ def build_backbone(cfg):
     # TODO Add freezing option into the configuration.
     freeze_dla_level(backbone.body.level0)
     freeze_dla_level(backbone.body.level1)
-    freeze_dla_level(backbone.body.level2)
 
     return backbone
 

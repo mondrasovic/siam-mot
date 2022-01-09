@@ -6,6 +6,8 @@
     "output_root_path": "./eval_dsa",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
+        "0005000",
+        "0010000",
         "0015000",
         "0020000",
         "0025000",
