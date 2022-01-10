@@ -36,6 +36,8 @@ def build_latex_table_doc(results_file):
 
     model = model_dir.stem
     attention = {
+        'attention_inc': 'FC Attention',
+        'no_attention': 'None',
         'with_dsa': 'Deformable Siamese Attention',
         'without_dsa': 'None'
     }[attention_dir.stem]
