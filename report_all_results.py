@@ -36,8 +36,8 @@ def build_latex_table_doc(results_file):
 
     model = model_dir.stem
     attention = {
-        'attention_inc': 'Included',
-        'no_attention': 'None'
+        'with_dsa': 'Deformable Siamese Attention',
+        'without_dsa': 'None'
     }[attention_dir.stem]
     # model_dir = results_file.parent.parent
     # solver_dir = model_dir.parent
