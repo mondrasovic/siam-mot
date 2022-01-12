@@ -77,7 +77,7 @@ class ChannelAttentionCalc(nn.Module):
             torch.max(energy, dim=-1, keepdim=True)[0].expand_as(energy) -
             energy
         )  # [B,C,C]
-        channel_attention = F.softmax(energy_new, dim=1)  # [B,C,C]
+        channel_attention = F.softmax(energy_new, dim=-1)  # [B,C,C]
 
         return channel_attention
 
