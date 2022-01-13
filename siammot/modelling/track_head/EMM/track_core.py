@@ -10,7 +10,7 @@ from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
 from .attention import build_attention
 from .track_loss import EMMLossComputation
-from .xcorr import xcorr_depthwise
+from .xcorr import build_cross_correlation_layer
 
 
 @registry.SIAMESE_TRACKER.register('EMM')
@@ -21,6 +21,7 @@ class EMM(torch.nn.Module):
         self.predictor = EMMPredictor(cfg)
         self.loss = EMMLossComputation(cfg)
         self.attention = build_attention(cfg)
+        self.xcorr = build_cross_correlation_layer(cfg)
 
         self.track_utils = track_utils
         self.amodal = cfg.INPUT.AMODAL
@@ -59,7 +60,7 @@ class EMM(torch.nn.Module):
             self.attention(template_features, sr_features)
         )
 
-        response_map = xcorr_depthwise(
+        response_map = self.xcorr(
             attentional_sr_features, attentional_template_features
         )
         cls_logits, center_logits, reg_logits = self.predictor(response_map)
