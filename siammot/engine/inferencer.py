@@ -11,6 +11,7 @@ from PIL import Image
 from gluoncv.torch.data.gluoncv_motion_dataset.dataset import DataSample
 from tqdm import tqdm
 
+from siammot.debug.response_map_vis import build_or_get_existing_response_map_visualizer
 from ..data.adapters.augmentation.build_augmentation import \
     build_siam_augmentation
 from ..data.build_inference_data_loader import build_video_loader
@@ -19,7 +20,7 @@ from ..utils.boxlists_to_entities import (
     boxlists_to_entities,
     convert_given_detections_to_boxlist,
 )
-from siammot.modelling.track_head.track_solver_debug import (
+from siammot.debug.track_solver_debug import (
     build_or_get_existing_track_solver_debugger
 )
 
@@ -80,6 +81,10 @@ def do_inference(
     sample_result = DataSample(
         sample_name, raw_info=None, metadata=sample.metadata
     )
+
+    if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
+        response_map_vis = build_or_get_existing_response_map_visualizer()
+        response_map_vis.init_new_sequence(sample_name)
 
     network_time = 0
     for (video_clip, frame_id, timestamps) in tqdm(video_loader):

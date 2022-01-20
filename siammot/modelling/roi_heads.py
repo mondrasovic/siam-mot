@@ -63,7 +63,7 @@ class CombinedROIHeads(torch.nn.ModuleDict):
                     tracks = self._refine_tracks(features, tracks)
                     detections = [cat_boxlist(detections + tracks)]
 
-                detections = self.solver(detections, features)
+                detections = self.solver(detections)
 
                 # Get the current state for tracking.
                 # Extract fresh feature ROIs for ongoing detections.
