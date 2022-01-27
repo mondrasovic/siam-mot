@@ -22,6 +22,8 @@ class XCorrDepthwise(nn.Module):
 
 
 class ModulatedDeformXCorrDepthwise(nn.Module):
+    # TODO Fix this implementation, or at least check it. It is probably wrong.
+
     def __init__(self, n_channels: int, template_size: int) -> None:
         super().__init__()
 
