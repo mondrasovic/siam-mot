@@ -134,7 +134,7 @@ def train(cfg, train_dir, local_rank, distributed, logger):
     gc.collect()
     torch.cuda.empty_cache()
 
-    do_train_old(
+    do_train(
         model, data_loader, optimizer, scheduler, checkpointer, device,
         checkpoint_period, arguments, logger, tensorboard_writer
     )
