@@ -3,6 +3,7 @@ import os
 import gc
 
 import torch
+import torch.multiprocessing as mp
 from maskrcnn_benchmark.solver import make_lr_scheduler, make_optimizer
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
@@ -107,14 +108,17 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
 def setup_env_and_logger(args, cfg):
     num_gpus = int(
-        os.environ["WORLD_SIZE"]
-    ) if "WORLD_SIZE" in os.environ else 1
+        os.environ['WORLD_SIZE']
+    ) if 'WORLD_SIZE' in os.environ else 1
     args.distributed = num_gpus > 1
 
     if args.distributed:
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12345'
+
         torch.cuda.set_device(args.local_rank)
         torch.distributed.init_process_group(
-            backend="nccl", init_method="env://"
+            backend='nccl', rank=args.local_rank, world_size=num_gpus
         )
         synchronize()
 
@@ -143,9 +147,10 @@ def setup_env_and_logger(args, cfg):
     return train_dir, logger
 
 
-def main():
+def main(rank):
     args = parser.parse_args()
 
+    args.local_rank = rank
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
@@ -156,4 +161,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    os.environ['WORLD_SIZE'] = '2'
+    os.environ['CUDA_AVAILABLE_DEVICES'] = '0,1'
+
+    mp.spawn(main, nprocs=2)
+    # main()

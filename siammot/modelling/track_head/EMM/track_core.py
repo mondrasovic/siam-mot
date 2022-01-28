@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from maskrcnn_benchmark.modeling.utils import cat
 from maskrcnn_benchmark.structures.bounding_box import BoxList
+from siammot.debug.response_map_vis import build_or_get_existing_response_map_visualizer
 
 from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
@@ -20,7 +21,15 @@ class EMM(torch.nn.Module):
         self.feature_extractor = EMMFeatureExtractor(cfg)
         self.predictor = EMMPredictor(cfg)
         self.loss = EMMLossComputation(cfg)
+
         self.attention = build_attention(cfg)
+
+        if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
+            self.response_map_vis = (
+                build_or_get_existing_response_map_visualizer()
+            )
+        else:
+            self.response_map_vis = None
 
         self.track_utils = track_utils
         self.amodal = cfg.INPUT.AMODAL
@@ -118,6 +127,12 @@ class EMM(torch.nn.Module):
             track_result = wrap_results_to_boxlist(
                 bb, bb_conf, boxes, amodal=self.amodal
             )
+
+            if self.response_map_vis:
+                self.response_map_vis.add_response_map(
+                    response_map, track_result
+                )
+
             return {}, track_result, {}
 
     def extract_cache(self, features, detection):

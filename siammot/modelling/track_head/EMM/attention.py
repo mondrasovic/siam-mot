@@ -29,11 +29,11 @@ class SpatialAttention(nn.Module):
 
         assert n_channels >= n_query_key_channels
 
-        self.weight = nn.Parameter(torch.zeros(1))
-
         self.conv_query = self._build_conv1x1(n_channels, n_query_key_channels)
         self.conv_key = self._build_conv1x1(n_channels, n_query_key_channels)
         self.conv_value = self._build_conv1x1(n_channels, n_channels)
+
+        self.weight = nn.Parameter(torch.zeros(1))
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         query = self.conv_query(features)  # [B,C',H,W]
@@ -45,12 +45,13 @@ class SpatialAttention(nn.Module):
         value = value.flatten(start_dim=2)  # [B,C,N]
 
         query = torch.transpose(query, 1, 2)  # [B,N,C']
-        attention_map = torch.bmm(query, key)  # [B,N,N]
-        attention_map = F.softmax(attention_map, dim=0)  # [B,N,N]
+        energy = torch.bmm(query, key)  # [B,N,N]
+        attention = F.softmax(energy, dim=-1)  # [B,N,N]
+        attention = torch.transpose(attention, 1, 2)  # [B,N,N]
 
         features_flat = features.flatten(start_dim=2)  # [B,C,N]
         spatial_attention = (
-            self.weight * torch.bmm(value, attention_map) + features_flat
+            self.weight * torch.bmm(value, attention) + features_flat
         )  # [B,C,N]
         spatial_attention = spatial_attention.reshape(
             features.shape
@@ -72,7 +73,11 @@ class ChannelAttentionCalc(nn.Module):
 
         key = torch.transpose(key, 1, 2)  # [B,N,C]
         energy = torch.bmm(query, key)  # [B,C,C]
-        channel_attention = F.softmax(energy, dim=1)  # [B,C,C]
+        energy_new = (
+            torch.max(energy, dim=-1, keepdim=True)[0].expand_as(energy) -
+            energy
+        )  # [B,C,C]
+        channel_attention = F.softmax(energy_new, dim=-1)  # [B,C,C]
 
         return channel_attention
 

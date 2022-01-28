@@ -10,7 +10,7 @@ from maskrcnn_benchmark.layers import nms as _box_nms
 from yacs.config import CfgNode
 
 from siammot.modelling.track_head.track_utils import TrackPool
-from siammot.modelling.track_head.track_solver_debug import\
+from siammot.debug.track_solver_debug import\
     build_or_get_existing_track_solver_debugger
 
 
@@ -101,7 +101,7 @@ class TrackSolverOrig(TrackSolver):
             nms_thresh, add_debug
         )
 
-    def forward(self, detection: List[BoxList], features=None):
+    def forward(self, detection: List[BoxList]):
         """
         The solver is to merge predictions from detection branch as well as
         from track branch.

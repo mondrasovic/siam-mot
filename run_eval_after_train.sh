@@ -1,4 +1,4 @@
-train_process_pid=119962
+train_process_pid=68870
 
 while ps -p $train_process_pid > /dev/null
 do

@@ -53,6 +53,7 @@ cfg.MODEL.TRACK_HEAD.MODEL = 'EMM'
 # attention
 cfg.MODEL.TRACK_HEAD.USE_ATTENTION = False
 cfg.MODEL.TRACK_HEAD.N_QUERY_KEY_CHANNELS = 32
+cfg.MODEL.TRACK_HEAD.USE_DEFORM_XCORR = False
 
 # solver params
 cfg.MODEL.TRACK_HEAD.TRACK_THRESH = 0.3
@@ -62,7 +63,6 @@ cfg.MODEL.TRACK_HEAD.NMS_THRESH = 0.5
 # maximum number of frames that a track can be dormant
 cfg.MODEL.TRACK_HEAD.MAX_DORMANT_FRAMES = 25
 
-# ReID related configurations
 cfg.MODEL.TRACK_HEAD.SOLVER_TYPE = 'original'
 cfg.MODEL.TRACK_HEAD.ADD_DEBUG = False
 
@@ -89,6 +89,8 @@ cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION = 0.8
 # Setting this param to be small (e.g. 0.1) for datasets that have fast motion,
 # such as caltech roadside pedestrian
 cfg.MODEL.TRACK_HEAD.EMM.COSINE_WINDOW_WEIGHT = 0.4
+
+cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP = False
 
 # all video-related parameters
 cfg.VIDEO = CN()
