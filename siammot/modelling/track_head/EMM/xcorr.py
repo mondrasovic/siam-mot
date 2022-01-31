@@ -22,6 +22,8 @@ class XCorrDepthwise(nn.Module):
 
 
 class ModulatedDeformXCorrDepthwise(nn.Module):
+    # TODO Fix this implementation, or at least check it. It is probably wrong.
+
     def __init__(self, n_channels: int, template_size: int) -> None:
         super().__init__()
 
@@ -71,12 +73,4 @@ class ModulatedDeformXCorrDepthwise(nn.Module):
 
 
 def build_cross_correlation_layer(cfg: CfgNode) -> nn.Module:
-    if cfg.MODEL.TRACK_HEAD.USE_DEFORM_XCORR:
-        xcorr = ModulatedDeformXCorrDepthwise(
-            n_channels=cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
-            template_size=cfg.MODEL.TRACK_HEAD.POOLER_RESOLUTION
-        )
-    else:
-        xcorr = XCorrDepthwise()
-
-    return xcorr
+    raise NotImplementedError

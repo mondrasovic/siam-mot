@@ -1,9 +1,16 @@
 import argparse
 import os
-import gc
+import pathlib
+import sys
+
+# TODO Remove this ugly path modification.
+project_root = str(pathlib.Path(__file__).parent.parent.absolute())
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 import torch
-import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 from maskrcnn_benchmark.solver import make_lr_scheduler, make_optimizer
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
@@ -23,51 +30,61 @@ try:
 except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
-parser = argparse.ArgumentParser(description="PyTorch SiamMOT Training")
-parser.add_argument(
-    "--config-file",
-    default="",
-    metavar="FILE",
-    help="path to config file",
-    type=str
-)
-parser.add_argument(
-    "--train-dir",
-    default="",
-    help="training folder where training artifacts are dumped",
-    type=str
-)
-parser.add_argument(
-    "--model-suffix",
-    default="",
-    help="model suffix to differentiate different runs",
-    type=str
-)
-parser.add_argument("--local_rank", type=int, default=0)
-parser.add_argument(
-    'opts',
-    help="overwriting the training config from commandline",
-    default=None,
-    nargs=argparse.REMAINDER
-)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="PyTorch SiamMOT Training")
+    parser.add_argument(
+        "--config-file",
+        default="",
+        metavar="FILE",
+        help="path to config file",
+        type=str
+    )
+    parser.add_argument(
+        "--train-dir",
+        default="",
+        help="training folder where training artifacts are dumped",
+        type=str
+    )
+    parser.add_argument(
+        "--model-suffix",
+        default="",
+        help="model suffix to differentiate different runs",
+        type=str
+    )
+    parser.add_argument(
+        '--local_rank',
+        type=int,
+        default=0,
+        metavar='N',
+        help="local process rank"
+    )
+    parser.add_argument(
+        'opts',
+        help="overwriting the training config from commandline",
+        default=None,
+        nargs=argparse.REMAINDER
+    )
+    args = parser.parse_args()
+
+    return args
 
 
 def train(cfg, train_dir, local_rank, distributed, logger):
-    # build model
     model = build_siammot(cfg)
-    device = torch.device(cfg.MODEL.DEVICE)
+    device = torch.device(local_rank)
     model.to(device)
 
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer)
 
     # Initialize mixed-precision training
-    use_mixed_precision = (cfg.DTYPE == 'float16')
+    use_mixed_precision = cfg.DTYPE == 'float16'
     amp_opt_level = 'O1' if use_mixed_precision else 'O0'
     model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
 
     if distributed:
-        model = torch.nn.parallel.DistributedDataParallel(
+        model = DDP(
             model,
             device_ids=[local_rank],
             output_device=local_rank,
@@ -95,9 +112,6 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
     tensorboard_writer = TensorboardWriter(cfg, train_dir)
 
-    gc.collect()
-    torch.cuda.empty_cache()
-
     do_train_old(
         model, data_loader, optimizer, scheduler, checkpointer, device,
         checkpoint_period, arguments, logger, tensorboard_writer
@@ -107,18 +121,13 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
 
 def setup_env_and_logger(args, cfg):
-    num_gpus = int(
-        os.environ['WORLD_SIZE']
-    ) if 'WORLD_SIZE' in os.environ else 1
+    num_gpus = int(os.environ.get('WORLD_SIZE', 1))
     args.distributed = num_gpus > 1
 
     if args.distributed:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '12345'
-
         torch.cuda.set_device(args.local_rank)
-        torch.distributed.init_process_group(
-            backend='nccl', rank=args.local_rank, world_size=num_gpus
+        dist.init_process_group(
+            backend='nccl', init_method='env://', rank=args.local_rank
         )
         synchronize()
 
@@ -138,7 +147,6 @@ def setup_env_and_logger(args, cfg):
     with open(args.config_file, "r") as cf:
         config_str = "\n" + cf.read()
         logger.info(config_str)
-    logger.info("Running with config:\n{}".format(cfg))
 
     output_config_path = os.path.join(train_dir, 'config.yml')
     logger.info("Saving config into: {}".format(output_config_path))
@@ -147,10 +155,9 @@ def setup_env_and_logger(args, cfg):
     return train_dir, logger
 
 
-def main(rank):
-    args = parser.parse_args()
+def main():
+    args = parse_args()
 
-    args.local_rank = rank
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
@@ -161,8 +168,4 @@ def main(rank):
 
 
 if __name__ == "__main__":
-    os.environ['WORLD_SIZE'] = '2'
-    os.environ['CUDA_AVAILABLE_DEVICES'] = '0,1'
-
-    mp.spawn(main, nprocs=2)
-    # main()
+    main()

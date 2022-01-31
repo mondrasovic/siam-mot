@@ -26,7 +26,6 @@ VIDEO:
    RANDOM_FRAMES_PER_CLIP: 2
 
 MODEL:
-  DEVICE: "cuda:0"
   BOX_ON: True
   TRACK_ON: True
 

@@ -42,7 +42,7 @@ def do_train(
             continue
 
         data_time = time.time() - end
-        iteration = iteration + 1
+        iteration += 1
         arguments["iteration"] = iteration
 
         scheduler.step()
