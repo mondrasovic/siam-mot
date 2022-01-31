@@ -73,12 +73,4 @@ class ModulatedDeformXCorrDepthwise(nn.Module):
 
 
 def build_cross_correlation_layer(cfg: CfgNode) -> nn.Module:
-    if cfg.MODEL.TRACK_HEAD.USE_DEFORM_XCORR:
-        xcorr = ModulatedDeformXCorrDepthwise(
-            n_channels=cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
-            template_size=cfg.MODEL.TRACK_HEAD.POOLER_RESOLUTION
-        )
-    else:
-        xcorr = XCorrDepthwise()
-
-    return xcorr
+    raise NotImplementedError

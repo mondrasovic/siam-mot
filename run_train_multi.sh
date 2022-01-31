@@ -1,6 +1,12 @@
 #!/bin/bash
 
-export CUDA_AVAILABLE_DEVICES=0,1
-export WORLD_SIZE=2
+export NUM_NODES=1
+export NUM_GPUS_PER_NODE=2
+export NODE_RANK=0
+export WORLD_SIZE=$(($NUM_NODES * $NUM_GPUS_PER_NODE))
 
-python3 -m torch.distributed.launch --nproc_per_node=2 tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml --train-dir ./demos/models/uadetrac_tmp --model-suffix uadetrac
+python -m torch.distributed.launch \
+    --nproc_per_node=$NUM_GPUS_PER_NODE \
+    --nnodes=$NUM_NODES \
+    --node_rank $NODE_RANK \
+    tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml --train-dir ./demos/models/uadt_dsa_2x --model-suffix uadt MODEL.TRACK_HEAD.USE_ATTENTION "True"
