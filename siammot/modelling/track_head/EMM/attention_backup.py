@@ -35,18 +35,20 @@ class PreAttentionFeatureSampler(FeatureSubsetSampler):
 
         if n_rem_neg > 0:
             neg_mask = ~pos_mask
-            neg_idxs = torch.atleast_1d(neg_mask.nonzero()[0])
+            neg_idxs = torch.atleast_1d(torch.squeeze(neg_mask.nonzero()))
             rand_idxs = torch.randperm(len(neg_idxs), device=device)[:n_rem_neg]
             neg_mask_subset = torch.zeros_like(neg_mask, device=device)
             neg_idxs_subset = neg_idxs[rand_idxs]
             neg_mask_subset[neg_idxs_subset] = True
             subset_mask = subset_mask | neg_mask_subset
 
-        return torch.nonzero(subset_mask)[0]
+        return subset_mask
 
     @staticmethod
     def _get_pos_mask(boxes: List[BoxList]) -> torch.Tensor:
-        pos_mask = torch.cat([box.get_field('labels') for box in boxes]).bool()
+        pos_mask = torch.cat(
+            [box.get_field('labels') for box in boxes], dtype=torch.bool
+        )
         return pos_mask
 
 
@@ -65,7 +67,7 @@ class NoAttention(nn.Module, Attention):
         return template_features, sr_features
 
 
-class SpatialAttentionCalc(nn.Module):
+class SpatialAttention(nn.Module):
     def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
@@ -91,8 +93,9 @@ class SpatialAttentionCalc(nn.Module):
         attention = F.softmax(energy, dim=-1)  # [B,N,N]
         attention = torch.transpose(attention, 1, 2)  # [B,N,N]
 
+        features_flat = features.flatten(start_dim=2)  # [B,C,N]
         spatial_attention = (
-            self.weight * torch.bmm(value, attention)
+            self.weight * torch.bmm(value, attention) + features_flat
         )  # [B,C,N]
         spatial_attention = spatial_attention.reshape(
             features.shape
@@ -132,10 +135,11 @@ class ChannelAttentionUse(nn.Module):
     def forward(
         self, features: torch.Tensor, attention: torch.Tensor
     ) -> torch.Tensor:
-        value = features.flatten(start_dim=2)  # [B,C,N]
+        features_flat = features.flatten(start_dim=2)  # [B,C,N]
+        value = features_flat
 
         channel_attention = (
-            self.weight * torch.bmm(attention, value)
+            self.weight * torch.bmm(attention, value) + features_flat
         )  # [B,C,N]
         channel_attention = channel_attention.reshape(
             features.shape
@@ -148,10 +152,10 @@ class DeformableSiameseAttention(nn.Module, Attention):
     def __init__(self, n_channels: int, n_query_key_channels: int) -> None:
         super().__init__()
 
-        self.template_spatial_attention_calc = SpatialAttentionCalc(
+        self.template_spatial_attention = SpatialAttention(
             n_channels, n_query_key_channels
         )
-        self.sr_spatial_attention_calc = SpatialAttentionCalc(
+        self.sr_spatial_attention = SpatialAttention(
             n_channels, n_query_key_channels
         )
 
@@ -168,83 +172,40 @@ class DeformableSiameseAttention(nn.Module, Attention):
         self.sr_deform_conv = self._build_deform_conv3x3(n_channels)
 
     def forward(
-        self,
-        template_features: torch.Tensor,
-        sr_features: torch.Tensor,
-        subset_idxs: Optional[torch.Tensor] = None
+        self, template_features: torch.Tensor, sr_features: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        if subset_idxs is None:
-            template_features_subset = template_features
-            sr_features_subset = sr_features
-        else:
-            template_features_subset = template_features[subset_idxs]
-            sr_features_subset = sr_features[subset_idxs]
-
-        template_spatial_attention = self.template_spatial_attention_calc(
-            template_features_subset
+        template_spatial_attention_final = self.template_spatial_attention(
+            template_features
         )
-        sr_spatial_attention = self.sr_spatial_attention_calc(
-            sr_features_subset
-        )
-
-        template_spatial_attention_final = (
-            template_features_subset + template_spatial_attention
-        )
-        sr_spatial_attention_final = sr_features_subset + sr_spatial_attention
+        sr_spatial_attention_final = self.sr_spatial_attention(sr_features)
 
         template_channel_attention = self.template_channel_attention_calc(
-            template_features_subset
+            template_features
         )
-        sr_channel_attention = self.sr_channel_attention_calc(
-            sr_features_subset
-        )
+        sr_channel_attention = self.sr_channel_attention_calc(sr_features)
 
         template_channel_attention_final = self.template_channel_attention_use(
-            template_features_subset, template_channel_attention
+            template_features, template_channel_attention
         )
         sr_channel_attention_final = self.sr_channel_attention_use(
-            sr_features_subset, sr_channel_attention
+            sr_features, sr_channel_attention
         )
 
         template_cross_attention_final = self.sr_to_template_cross_attention(
-            template_features_subset, sr_channel_attention
+            template_features, sr_channel_attention
         )
         sr_cross_attention_final = self.template_to_sr_cross_attention(
-            sr_features_subset, template_channel_attention
+            sr_features, template_channel_attention
         )
 
-        template_attention_combined = (
+        attentional_template_features = self.template_deform_conv(
             template_spatial_attention_final +
             template_channel_attention_final + template_cross_attention_final
         )
-        sr_attention_combined = (
+        attentional_sr_features = self.sr_deform_conv(
             sr_spatial_attention_final + sr_channel_attention_final +
             sr_cross_attention_final
         )
-
-        if subset_idxs is None:
-            attentional_template_features = (
-                template_features + template_attention_combined
-            )
-            attentional_sr_features = sr_features + sr_attention_combined
-        else:
-            attentional_template_features = torch.index_add(
-                template_features,
-                dim=0,
-                index=subset_idxs,
-                source=template_attention_combined
-            )
-            attentional_sr_features = torch.index_add(
-                sr_features,
-                dim=0,
-                index=subset_idxs,
-                source=sr_attention_combined
-            )
-
-        attentional_template_features = self.template_deform_conv(
-            attentional_template_features
-        )
-        attentional_sr_features = self.sr_deform_conv(attentional_sr_features)
 
         return attentional_template_features, attentional_sr_features
 
