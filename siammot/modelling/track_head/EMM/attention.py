@@ -9,45 +9,69 @@ from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.layers.dcn.deform_conv_module import ModulatedDeformConvPack
 
 
-class FeatureSubsetSampler(nn.Module):
+class AttentionProposalSampler(nn.Module, abc.ABC):
+    @abc.abstractmethod
+    def forward(self, boxes: List[BoxList],
+                targets: List[BoxList]) -> Optional[torch.Tensor]:
+        pass
+
+
+class AttentionAllProposalsSampler(AttentionProposalSampler):
     def forward(self, boxes: List[BoxList],
                 targets: List[BoxList]) -> Optional[torch.Tensor]:
         return None
 
 
-class PreAttentionFeatureSampler(FeatureSubsetSampler):
-    def __init__(self, max_subset_size: int) -> None:
+class AttentionHardMiningSampler(AttentionProposalSampler):
+    def __init__(self):
         super().__init__()
-
-        self.max_subset_size: int = max_subset_size
 
     def forward(self, boxes: List[BoxList],
                 targets: List[BoxList]) -> Optional[torch.Tensor]:
-        pred_pos_mask = self._get_pos_mask(boxes)
-        gt_pos_mask = self._get_pos_mask(targets)
+        return None
+
+
+class AttentionRandomSampler(AttentionProposalSampler):
+    def __init__(self, n_max_frame_samples: int) -> None:
+        super().__init__()
+
+        self.n_max_frame_samples: int = n_max_frame_samples
+
+    def forward(self, boxes: List[BoxList],
+                targets: List[BoxList]) -> Optional[torch.Tensor]:
+        subset_idxs = torch.cat(
+            [
+                self._sample_frame_proposals_idxs(pred_boxes, gt_boxes)
+                for pred_boxes, gt_boxes in zip(boxes, targets)
+            ]
+        )
+        return subset_idxs
+
+    def _sample_frame_proposals_idxs(
+        self, pred_boxes: BoxList, gt_boxes: BoxList
+    ) -> torch.Tensor:
+        pred_pos_mask = pred_boxes.get_field('ids') >= 0
+        gt_pos_mask = gt_boxes.get_field('ids') >= 0
         pos_mask = pred_pos_mask | gt_pos_mask
         subset_mask = pos_mask
 
         device = pos_mask.device
 
-        n_pos = torch.sum(pos_mask)
-        n_rem_neg = max(self.max_subset_size - n_pos, 0)
+        n_pos = torch.sum(pos_mask).item()
+        n_rem_neg = max(self.n_max_frame_samples - n_pos, 0)
 
         if n_rem_neg > 0:
             neg_mask = ~pos_mask
-            neg_idxs = torch.atleast_1d(neg_mask.nonzero()[0])
+            neg_idxs = torch.squeeze(torch.nonzero(neg_mask), dim=1)
             rand_idxs = torch.randperm(len(neg_idxs), device=device)[:n_rem_neg]
             neg_mask_subset = torch.zeros_like(neg_mask, device=device)
             neg_idxs_subset = neg_idxs[rand_idxs]
             neg_mask_subset[neg_idxs_subset] = True
             subset_mask = subset_mask | neg_mask_subset
 
-        return torch.nonzero(subset_mask)[0]
+        subset_idxs = torch.squeeze(torch.nonzero(subset_mask), dim=1)
 
-    @staticmethod
-    def _get_pos_mask(boxes: List[BoxList]) -> torch.Tensor:
-        pos_mask = torch.cat([box.get_field('labels') for box in boxes]).bool()
-        return pos_mask
+        return subset_idxs
 
 
 class Attention(abc.ABC):
@@ -82,9 +106,9 @@ class SpatialAttentionCalc(nn.Module):
         key = self.conv_key(features)  # [B,C',H,W]
         value = self.conv_value(features)  # [B,C,H,W]
 
-        query = query.flatten(start_dim=2)  # [B,C',N], N = H * W
-        key = key.flatten(start_dim=2)  # [B,C',N]
-        value = value.flatten(start_dim=2)  # [B,C,N]
+        query = torch.flatten(query, start_dim=2)  # [B,C',N], N = H * W
+        key = torch.flatten(key, start_dim=2)  # [B,C',N]
+        value = torch.flatten(value, start_dim=2)  # [B,C,N]
 
         query = torch.transpose(query, 1, 2)  # [B,N,C']
         energy = torch.bmm(query, key)  # [B,N,N]
@@ -107,7 +131,9 @@ class SpatialAttentionCalc(nn.Module):
 
 class ChannelAttentionCalc(nn.Module):
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        features_flat = features.flatten(start_dim=2)  # [B,C,N], N = H * W
+        features_flat = torch.flatten(
+            features, start_dim=2
+        )  # [B,C,N], N = H * W
 
         query = features_flat
         key = features_flat
@@ -132,7 +158,10 @@ class ChannelAttentionUse(nn.Module):
     def forward(
         self, features: torch.Tensor, attention: torch.Tensor
     ) -> torch.Tensor:
-        value = features.flatten(start_dim=2)  # [B,C,N]
+        value = torch.flatten(features, start_dim=2)  # [B,C,N]
+
+        if attention.ndim == 4:
+            attention = torch.flatten(attention, start_dim=2)
 
         channel_attention = (
             self.weight * torch.bmm(attention, value)
@@ -173,54 +202,67 @@ class DeformableSiameseAttention(nn.Module, Attention):
         sr_features: torch.Tensor,
         subset_idxs: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Computes and applies the attention biases to the given features.
+
+        Args:
+            template_features (torch.Tensor): Template features of shape
+                [B,C,T,T].
+            sr_features (torch.Tensor): Search region features of shape
+                [B,S,S,S].
+            subset_idxs (Optional[torch.Tensor], optional): Tensor of shape
+                [B',] representing the indices of the subset of samples
+                (features) to consider, such that B' <= B. Defaults to None.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Attentional template and search
+                region features, a tuple of tensors with the shape of
+                ([B,C,T,T], [B,C,S,S]).
+        """
         if subset_idxs is None:
-            template_features_subset = template_features
-            sr_features_subset = sr_features
+            template_features_subset = template_features  # [B,C,T,T]
+            sr_features_subset = sr_features  # [B,C,S,S]
         else:
-            template_features_subset = template_features[subset_idxs]
-            sr_features_subset = sr_features[subset_idxs]
+            template_features_subset = (
+                template_features[subset_idxs]
+            )  # [B',C,T,T]
+            sr_features_subset = sr_features[subset_idxs]  # [B',C,S,S]
 
-        template_spatial_attention = self.template_spatial_attention_calc(
+        template_spatial_attention_final = self.template_spatial_attention_calc(
             template_features_subset
-        )
-        sr_spatial_attention = self.sr_spatial_attention_calc(
+        )  # [B|B',C,T,T]
+        sr_spatial_attention_final = self.sr_spatial_attention_calc(
             sr_features_subset
-        )
-
-        template_spatial_attention_final = (
-            template_features_subset + template_spatial_attention
-        )
-        sr_spatial_attention_final = sr_features_subset + sr_spatial_attention
+        )  # [B|B',C,S,S]
 
         template_channel_attention = self.template_channel_attention_calc(
             template_features_subset
-        )
+        )  # [B|B',C,C]
         sr_channel_attention = self.sr_channel_attention_calc(
             sr_features_subset
-        )
+        )  # [B|B',C,C]
 
         template_channel_attention_final = self.template_channel_attention_use(
             template_features_subset, template_channel_attention
-        )
+        )  # [B|B',T,T]
         sr_channel_attention_final = self.sr_channel_attention_use(
             sr_features_subset, sr_channel_attention
-        )
+        )  # [B|B',S,S]
 
         template_cross_attention_final = self.sr_to_template_cross_attention(
             template_features_subset, sr_channel_attention
-        )
+        )  # [B|B',C,T,T]
         sr_cross_attention_final = self.template_to_sr_cross_attention(
             sr_features_subset, template_channel_attention
-        )
+        )  # [B|B',C,S,S]
 
         template_attention_combined = (
             template_spatial_attention_final +
             template_channel_attention_final + template_cross_attention_final
-        )
+        )  # [B|B',C,T,T]
         sr_attention_combined = (
             sr_spatial_attention_final + sr_channel_attention_final +
             sr_cross_attention_final
-        )
+        )  # [B|B',C,S,S]
 
         if subset_idxs is None:
             attentional_template_features = (
@@ -258,22 +300,27 @@ class DeformableSiameseAttention(nn.Module, Attention):
         )
 
 
-def build_attention_subset_sampler(cfg: CfgNode) -> FeatureSubsetSampler:
-    attention_subset_size = cfg.MODEL.TRACK_HEAD.ATTENTION_SUBSET_SIZE
+def build_attention_subset_sampler(cfg: CfgNode) -> AttentionProposalSampler:
+    sampling_strategy = cfg.MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY
+    n_max_frame_samples = cfg.MODEL.TRACK_HEAD.ATTENTION.N_MAX_FRAME_SAMPLES
 
-    if attention_subset_size is None:
-        attention_sampler = FeatureSubsetSampler()
+    if sampling_strategy == 'all':
+        attention_sampler = AttentionAllProposalsSampler()
+    elif sampling_strategy == 'random':
+        attention_sampler = AttentionRandomSampler(n_max_frame_samples)
+    elif sampling_strategy == 'hard':
+        attention_sampler = AttentionHardMiningSampler(n_max_frame_samples)
     else:
-        attention_sampler = PreAttentionFeatureSampler(attention_subset_size)
+        raise ValueError("unrecognized attention proposal sampling strategy")
 
     return attention_sampler
 
 
 def build_attention(cfg: CfgNode) -> Attention:
-    if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
+    if cfg.MODEL.TRACK_HEAD.ATTENTION.ENABLE:
         attention = DeformableSiameseAttention(
             cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
-            cfg.MODEL.TRACK_HEAD.N_QUERY_KEY_CHANNELS
+            cfg.MODEL.TRACK_HEAD.ATTENTION.N_QUERY_KEY_CHANNELS
         )
     else:
         attention = NoAttention()
