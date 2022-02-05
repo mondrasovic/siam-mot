@@ -40,6 +40,13 @@ parser.add_argument(
     "--model-file", default=None, metavar="FILE", help="path to model file",
     type=str
 )
+parser.add_argument(
+    '--local_rank',
+    type=int,
+    default=0,
+    metavar='N',
+    help="local process rank"
+)
 parser.add_argument("--test-dataset", default="MOT17_DPM", type=str)
 parser.add_argument("--set", default="test", type=str)
 parser.add_argument("--gpu-id", default=0, type=int)
@@ -52,6 +59,8 @@ parser.add_argument(
 
 def test(cfg, args, output_dir):
     torch.cuda.empty_cache()
+
+    torch.cuda.set_device(args.local_rank)
     
     # Construct model graph
     model = build_siammot(cfg)

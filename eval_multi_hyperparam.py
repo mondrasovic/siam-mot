@@ -1,5 +1,6 @@
 import os
 import sys
+import itertools
 import json
 import click
 import pathlib
@@ -8,7 +9,7 @@ import dataclasses
 
 import numpy as np
 
-from typing import DefaultDict, Iterable, List, Dict, Optional
+from typing import Iterable, Dict, Optional
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,26 +58,16 @@ def build_output_dir_path(
 
 
 def build_run_test_cmd(
-    config_file_path: str, model_file_path: str, dataset_name: str,
-    data_subset: str, csv_file_name: str, output_dir_path: str,
-    cfg_opts: Iterable[CfgOptSpec]
+    local_rank: int, config_file_path: str, model_file_path: str,
+    dataset_name: str, data_subset: str, csv_file_name: str,
+    output_dir_path: str, cfg_opts: Iterable[CfgOptSpec]
 ):
     run_test_args = [
-        'python3',
-        '-m',
-        'tools.test_net',
-        '--config-file',
-        config_file_path,
-        '--model-file',
-        model_file_path,
-        '--test-dataset',
-        dataset_name,
-        '--set',
-        data_subset,
-        '--eval-csv-file',
-        csv_file_name,
-        '--output-dir',
-        output_dir_path,
+        'python3', '-m', 'tools.test_net', '--local_rank',
+        str(local_rank), '--config-file', config_file_path, '--model-file',
+        model_file_path, '--test-dataset', dataset_name, '--set', data_subset,
+        '--eval-csv-file', csv_file_name, '--output-dir', output_dir_path,
+        "MODEL.DEVICE", f"\"cuda:{local_rank}\""
     ]
     for cfg_opt in cfg_opts:
         run_test_args.append(cfg_opt.name)
@@ -87,6 +78,7 @@ def build_run_test_cmd(
 
 def iter_cmd_args(
     train_dir_path: str,
+    local_ranks: Iterable[int],
     config_file_path: str,
     dataset_name: str,
     data_subset: str,
@@ -96,6 +88,7 @@ def iter_cmd_args(
     cfg_opts: Iterable[CfgOptSpec],
     cfg_val_map: Optional[Dict[str, str]] = None
 ) -> str:
+    local_ranks_iter = itertools.cycle(local_ranks)
     for cfg_opt in cfg_opts:
         for model_suffix in model_suffixes:
             model_file_path = build_model_path(train_dir_path, model_suffix)
@@ -103,10 +96,11 @@ def iter_cmd_args(
                 output_root_path, dataset_name, model_suffix, cfg_opt,
                 cfg_val_map
             )
+            local_rank = next(local_ranks_iter)
 
             cmd = build_run_test_cmd(
-                config_file_path, model_file_path, dataset_name, data_subset,
-                csv_file_name, output_dir_path, cfg_opt
+                local_rank, config_file_path, model_file_path, dataset_name,
+                data_subset, csv_file_name, output_dir_path, cfg_opt
             )
             yield ' '.join(cmd)
 
@@ -137,6 +131,7 @@ def main(
         params = json.load(file_handle)
 
     train_dir_path = params['train_dir_path']
+    local_ranks = params.get('local_ranks', [0])
     config_file_path = params['config_file_path']
     dataset_name = params['dataset_name']
     data_subset = params['data_subset']
@@ -148,9 +143,9 @@ def main(
 
     cmds = list(
         iter_cmd_args(
-            train_dir_path, config_file_path, dataset_name, data_subset,
-            output_root_path, csv_file_name, model_suffixes, cfg_opts,
-            cfg_val_map
+            train_dir_path, local_ranks, config_file_path, dataset_name,
+            data_subset, output_root_path, csv_file_name, model_suffixes,
+            cfg_opts, cfg_val_map
         )
     )
 

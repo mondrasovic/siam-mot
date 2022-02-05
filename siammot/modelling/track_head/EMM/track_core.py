@@ -65,7 +65,11 @@ class EMM(torch.nn.Module):
 
         sr_features = self.feature_extractor(features, boxes, sr)
 
-        subset_idxs = self.subset_sampler(boxes, targets)
+        if self.training:
+            subset_idxs = self.subset_sampler(boxes, targets)
+        else:
+            subset_idxs = None
+
         attentional_template_features, attentional_sr_features = (
             self.attention(template_features, sr_features, subset_idxs)
         )
