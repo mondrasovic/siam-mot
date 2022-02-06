@@ -77,14 +77,20 @@ class AttentionRandomSampler(AttentionProposalSampler):
 class Attention(abc.ABC):
     @abc.abstractmethod
     def forward(
-        self, template_features: torch.Tensor, sr_features: torch.Tensor
+        self,
+        template_features: torch.Tensor,
+        sr_features: torch.Tensor,
+        subset_idxs: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         pass
 
 
 class NoAttention(nn.Module, Attention):
     def forward(
-        self, template_features: torch.Tensor, sr_features: torch.Tensor
+        self,
+        template_features: torch.Tensor,
+        sr_features: torch.Tensor,
+        subset_idxs: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         return template_features, sr_features
 

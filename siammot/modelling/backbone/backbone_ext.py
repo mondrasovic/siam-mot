@@ -46,7 +46,7 @@ def build_backbone(cfg):
         )
     backbone = registry.BACKBONES[cfg.MODEL.BACKBONE.CONV_BODY](cfg)
 
-    freeze_dla_levels_if_needed(cfg, backbone)
+    # freeze_dla_levels_if_needed(cfg, backbone)
 
     return backbone
 

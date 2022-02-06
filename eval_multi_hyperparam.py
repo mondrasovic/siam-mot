@@ -1,15 +1,14 @@
 import os
 import sys
-import itertools
 import json
 import click
 import pathlib
-import random
 import dataclasses
+from itertools import cycle, groupby
+from typing import Iterable, Dict, Optional
+from nbformat import write
 
 import numpy as np
-
-from typing import Iterable, Dict, Optional
 
 
 @dataclasses.dataclass(frozen=True)
@@ -88,7 +87,7 @@ def iter_cmd_args(
     cfg_opts: Iterable[CfgOptSpec],
     cfg_val_map: Optional[Dict[str, str]] = None
 ) -> str:
-    local_ranks_iter = itertools.cycle(local_ranks)
+    local_ranks_iter = cycle(local_ranks)
     for cfg_opt in cfg_opts:
         for model_suffix in model_suffixes:
             model_file_path = build_model_path(train_dir_path, model_suffix)
@@ -105,13 +104,40 @@ def iter_cmd_args(
             yield ' '.join(cmd)
 
 
+def get_cmd_cuda_device(cmd):
+    cuda_str = "cuda:"
+    pos = cmd.find(cuda_str)
+
+    if pos < 0:
+        device_id = 0
+    else:
+        id_pos = pos + len(cuda_str)
+        device_id = int(cmd[id_pos:id_pos + 1])
+
+    return device_id
+
+
+def write_cmds_device_group_to_files(
+    cmds: Iterable[str], n_out_files: int, file_name_format: str,
+    start_file_id: int
+):
+    n_cmds = len(cmds)
+    n_out_files = min(n_out_files, n_cmds)
+    idxs = np.linspace(0, n_cmds + 1, n_out_files + 1).astype(np.int)
+
+    idxs_iter = enumerate(zip(idxs[:-1], idxs[1:]), start=start_file_id)
+    for i, (start, end) in idxs_iter:
+        with open(file_name_format.format(i), 'wt') as out_file:
+            out_file.write("\n\n".join(cmds[start:end]) + "\n")
+
+
 @click.command()
 @click.argument('param_json_file_path', type=click.Path(exists=True))
 @click.option(
     '-n',
     '--n-out-files',
     type=int,
-    default=3,
+    default=6,
     show_default=True,
     help="Number of output files."
 )
@@ -122,10 +148,8 @@ def iter_cmd_args(
     show_default=True,
     help="Script file name format."
 )
-@click.option('--shuffle', is_flag=True, help="Randomly shuffle commands.")
 def main(
-    param_json_file_path: click.Path, n_out_files: int, file_name_format: str,
-    shuffle: bool
+    param_json_file_path: click.Path, n_out_files: int, file_name_format: str
 ) -> int:
     with open(param_json_file_path, 'rt') as file_handle:
         params = json.load(file_handle)
@@ -149,20 +173,20 @@ def main(
         )
     )
 
-    if shuffle:
-        random.shuffle(cmds)
+    cmds = sorted(cmds, key=get_cmd_cuda_device)
 
     print("\n\n".join(cmds))
 
     if n_out_files > 0:
-        n_cmds = len(cmds)
-        n_out_files = min(n_out_files, n_cmds)
-        idxs = np.linspace(0, n_cmds + 1, n_out_files + 1).astype(np.int)
-
-        for i, (start, end) in enumerate(zip(idxs[:-1], idxs[1:]), start=1):
-            with open(file_name_format.format(i), 'wt') as out_file:
-                out_file.write("\n\n".join(cmds[start:end]) + "\n")
-
+        start_file_id = 1
+        curr_n_out_files = n_out_files // len(local_ranks)
+        for _, cmds_cuda_group in groupby(cmds, key=get_cmd_cuda_device):
+            cmds_cuda_group = list(cmds_cuda_group)
+            write_cmds_device_group_to_files(
+                cmds_cuda_group, curr_n_out_files, file_name_format,
+                start_file_id
+            )
+            start_file_id += curr_n_out_files
     return 0
 
 
