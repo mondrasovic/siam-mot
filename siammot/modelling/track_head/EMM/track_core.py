@@ -9,7 +9,7 @@ from siammot.debug.response_map_vis import build_or_get_existing_response_map_vi
 
 from siammot.utils import registry
 from .feature_extractor import EMMFeatureExtractor, EMMPredictor
-from .attention import build_attention, build_attention_subset_sampler
+from .attention import build_attention
 from .track_loss import EMMLossComputation
 from .xcorr import xcorr_depthwise
 
@@ -23,7 +23,7 @@ class EMM(torch.nn.Module):
         self.loss = EMMLossComputation(cfg)
 
         self.attention = build_attention(cfg)
-        self.subset_sampler = build_attention_subset_sampler(cfg)
+        # self.subset_sampler = build_attention_subset_sampler(cfg)
 
         if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
             self.response_map_vis = (
@@ -65,13 +65,13 @@ class EMM(torch.nn.Module):
 
         sr_features = self.feature_extractor(features, boxes, sr)
 
-        if self.training:
-            subset_idxs = self.subset_sampler(boxes, targets)
-        else:
-            subset_idxs = None
+        # if self.training:
+        #     subset_idxs = self.subset_sampler(boxes, targets)
+        # else:
+        #     subset_idxs = None
 
         attentional_template_features, attentional_sr_features = (
-            self.attention(template_features, sr_features, subset_idxs)
+            self.attention(template_features, sr_features)
         )
 
         response_map = xcorr_depthwise(
