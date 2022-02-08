@@ -23,6 +23,7 @@ class EMM(torch.nn.Module):
         self.loss = EMMLossComputation(cfg)
 
         self.attention = build_attention(cfg)
+        # self.subset_sampler = build_attention_subset_sampler(cfg)
 
         if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
             self.response_map_vis = (
@@ -63,6 +64,11 @@ class EMM(torch.nn.Module):
         features = self.track_utils.pad_feature(features)
 
         sr_features = self.feature_extractor(features, boxes, sr)
+
+        # if self.training:
+        #     subset_idxs = self.subset_sampler(boxes, targets)
+        # else:
+        #     subset_idxs = None
 
         attentional_template_features, attentional_sr_features = (
             self.attention(template_features, sr_features)

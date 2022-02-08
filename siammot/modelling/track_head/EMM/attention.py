@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from yacs.config import CfgNode
+from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.layers.dcn.deform_conv_module import ModulatedDeformConvPack
 
 
@@ -176,10 +177,10 @@ class DeformableSiameseAttention(nn.Module, Attention):
 
 
 def build_attention(cfg: CfgNode) -> Attention:
-    if cfg.MODEL.TRACK_HEAD.USE_ATTENTION:
+    if cfg.MODEL.TRACK_HEAD.ATTENTION.ENABLE:
         attention = DeformableSiameseAttention(
             cfg.MODEL.DLA.BACKBONE_OUT_CHANNELS,
-            cfg.MODEL.TRACK_HEAD.N_QUERY_KEY_CHANNELS
+            cfg.MODEL.TRACK_HEAD.ATTENTION.N_QUERY_KEY_CHANNELS
         )
     else:
         attention = NoAttention()

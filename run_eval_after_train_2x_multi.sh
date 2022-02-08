@@ -1,5 +1,5 @@
-train_process_pid_1=121498
-train_process_pid_2=121499
+train_process_pid_1=48470
+train_process_pid_2=48471
 
 while ps -p $train_process_pid_1 > /dev/null
 do
@@ -16,3 +16,11 @@ echo "Starting evaluation..."
 ./run_eval_1.sh&
 sleep 1
 ./run_eval_2.sh&
+sleep 1
+./run_eval_3.sh&
+sleep 1
+./run_eval_4.sh&
+sleep 1
+./run_eval_5.sh&
+sleep 1
+./run_eval_6.sh&
