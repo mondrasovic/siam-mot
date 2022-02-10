@@ -9,4 +9,4 @@ python -m torch.distributed.launch \
     --nproc_per_node=$NUM_GPUS_PER_NODE \
     --nnodes=$NUM_NODES \
     --node_rank $NODE_RANK \
-    tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml --train-dir ./demos/models/uadt_dsa_2x --model-suffix uadt MODEL.TRACK_HEAD.ATTENTION.ENABLE "True" MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY "all"
+    tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml --train-dir ./demos/models/uadt_orig_160rpn_2x --model-suffix uadt MODEL.TRACK_HEAD.ATTENTION.ENABLE "False" MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY "all"

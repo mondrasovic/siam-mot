@@ -66,8 +66,6 @@ def do_inference(
     model.eval()
     gpu_device = torch.device('cuda')
 
-    inverse_img_transform = build_inverse_tensor_to_pil_transform(cfg)
-
     add_debug = cfg.MODEL.TRACK_HEAD.ADD_DEBUG
     if add_debug:
         solver_debugger = build_or_get_existing_track_solver_debugger()

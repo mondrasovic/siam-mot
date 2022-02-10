@@ -1,5 +1,5 @@
 {
-    "train_dir_path": "./demos/models/uadt_dsa_2x/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
+    "train_dir_path": "./demos/models/uadt_orig_160rpn_2x/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
     "local_ranks": [
         0,
         1
@@ -7,7 +7,7 @@
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
-    "output_root_path": "./eval_dsa_2x",
+    "output_root_path": "./eval_orig_160rpn_2x",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0010000",
@@ -26,7 +26,7 @@
         [
             [
                 "MODEL.TRACK_HEAD.ATTENTION.ENABLE",
-                "True"
+                "False"
             ]
         ]
     ],

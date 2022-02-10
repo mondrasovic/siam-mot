@@ -30,7 +30,7 @@ def do_train(
     start_training_time = time.time()
     end = time.time()
 
-    n_accum_iters = 16
+    n_accum_iters = 10
 
     for iteration, (images, targets, _) in enumerate(data_loader, start_iter):
         if any(len(target) < 1 for target in targets):
@@ -82,7 +82,7 @@ def do_train(
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
 
         if (get_world_size() < 2) or (dist.get_rank() == 0):
-            if (iteration % 20 == 0) or (iteration == max_iter):
+            if (iteration % 1 == 0) or (iteration == max_iter):
                 logger.info(
                     meters.delimiter.join(
                         [
