@@ -5,7 +5,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from yacs.config import CfgNode
-from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.layers.dcn.deform_conv_module import ModulatedDeformConvPack
 
 

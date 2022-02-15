@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         "--config-file",
         default="",
-        metavar="FILE",
+        metavar='FILE',
         help="path to config file",
         type=str
     )
@@ -65,6 +65,7 @@ def parse_args():
         default=None,
         nargs=argparse.REMAINDER
     )
+
     args = parser.parse_args()
 
     return args
