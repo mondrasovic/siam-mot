@@ -8,7 +8,6 @@ import torch
 from PIL import Image
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.structures.bounding_box import BoxList
-from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 
 from siammot.configs.defaults import cfg
 from siammot.modelling.rcnn import build_siammot
@@ -25,15 +24,15 @@ def draw_heatmaps_on_image(
 ):
     assert 0 < alpha < 1, "alpha must be in (0, 1) interval"
 
-    # if len(heatmaps) != len(boxlist):
-    #     raise ValueError("the number of heatmaps and boxes must be equal")
+    if len(heatmaps) != len(boxlist):
+        raise ValueError("the number of heatmaps and boxes must be equal")
 
-    boxlist.clip_to_image()
     boxlist = boxlist.convert('xyxy')
-    boxes = boxlist.bbox.numpy().round().astype(np.int)
+    boxlist = boxlist.clip_to_image()
+    boxlist = boxlist.bbox.numpy().round().astype(np.int)
     heatmap_image = np.zeros_like(image)
 
-    for heatmap, (x1, y1, x2, y2) in zip(heatmaps, boxes):
+    for heatmap, (x1, y1, x2, y2) in zip(heatmaps, boxlist):
         heatmap_width = x2 - x1
         heatmap_height = y2 - y1
 
@@ -211,12 +210,26 @@ class SiamMOTImageInferencer:
         image_tensor = image_tensor.to(self.device)
         boxlist = self.model(image_tensor)[0]
 
-        boxlist.resize([image_width, image_height]).convert('xywh')
+        boxlist = boxlist.resize([image_width, image_height]).convert('xywh')
 
         if to_cpu:
             boxlist = boxlist.to(torch.device('cpu'))
 
         return boxlist
+
+
+def create_sr_boxlist(boxlist):
+    boxlist = boxlist.convert('xywh')
+    x, y, w, h = boxlist.bbox.split(1, dim=-1)
+
+    cx, cy = x + w / 2, y + h / 2
+    new_w, new_h = w * 2, h * 2
+    new_x, new_y = cx - w, cy - h
+
+    boxes = torch.cat((new_x, new_y, new_w, new_h), dim=-1)
+    expanded_boxlist = BoxList(boxes, boxlist.size, mode='xywh')
+
+    return expanded_boxlist
 
 
 def main():
@@ -245,22 +258,19 @@ def main():
 
     with torch.no_grad():
         exemplar_boxlist = inferencer.predict_on_file(args.exemplar_image_file)
-        search_boxlist = inferencer.predict_on_file(args.search_image_file)
+        inferencer.predict_on_file(args.search_image_file)
 
-    iou_thresh = 0.9
-    box_iou = boxlist_iou(exemplar_boxlist, search_boxlist)
-    above_thresh_mask = box_iou > iou_thresh
-    idxs = above_thresh_mask.nonzero()[:, 0].unique()
-
-    print(idxs)
+    valid_boxes_mask = exemplar_boxlist.get_field('ids') >= 0
+    valid_boxlist = exemplar_boxlist[valid_boxes_mask]
+    sr_boxlist = create_sr_boxlist(valid_boxlist)
     image = cv.imread(args.search_image_file)
-    # heatmaps = create_response_heatmaps(response_map.cpu().numpy())
-    # image_heatmap_blend = draw_heatmaps_on_image(
-    #     image, heatmaps, exemplar_boxlist
-    # )
-    draw_boxlist(image, exemplar_boxlist, (0, 0, 255))
-    draw_boxlist(image, search_boxlist, (0, 255, 0))
-    cv.imwrite('response_maps_vis.png', image)
+    heatmaps = create_response_heatmaps(response_map.cpu().numpy())
+    image_heatmap_blend = draw_heatmaps_on_image(image, heatmaps, sr_boxlist)
+    draw_boxlist(image_heatmap_blend, valid_boxlist, (128, 128, 128))
+    # cv.imwrite('response_maps_vis.png', image)
+    cv.imshow("Preview", image_heatmap_blend)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     return 0
 
