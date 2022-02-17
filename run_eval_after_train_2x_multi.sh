@@ -1,5 +1,5 @@
-train_process_pid_1=66371
-train_process_pid_2=66372
+train_process_pid_1=61244
+train_process_pid_2=61245
 
 while ps -p $train_process_pid_1 > /dev/null
 do

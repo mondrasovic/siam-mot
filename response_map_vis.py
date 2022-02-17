@@ -1,10 +1,50 @@
-import math
-import pathlib
+import argparse
+import os
 import sys
 
-import click
 import cv2 as cv
 import numpy as np
+import torch
+from PIL import Image
+from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
+from maskrcnn_benchmark.structures.bounding_box import BoxList
+
+from siammot.configs.defaults import cfg
+from siammot.modelling.rcnn import build_siammot
+from siammot.data.adapters.augmentation.build_augmentation import build_siam_augmentation
+from siammot.modelling.track_head.EMM.attention import DeformableSiameseAttention
+from siammot.modelling.track_head.EMM.xcorr import xcorr_depthwise
+
+
+def draw_heatmaps_on_image(
+    image: np.ndarray,
+    heatmaps: np.ndarray,
+    boxlist: BoxList,
+    alpha: float = 0.4
+):
+    assert 0 < alpha < 1, "alpha must be in (0, 1) interval"
+
+    if len(heatmaps) != len(boxlist):
+        raise ValueError("the number of heatmaps and boxes must be equal")
+
+    boxlist = boxlist.convert('xyxy')
+    boxlist = boxlist.clip_to_image()
+    boxlist = boxlist.bbox.numpy().round().astype(np.int)
+    heatmap_image = np.zeros_like(image)
+
+    for heatmap, (x1, y1, x2, y2) in zip(heatmaps, boxlist):
+        heatmap_width = x2 - x1
+        heatmap_height = y2 - y1
+
+        heatmap_resized = cv.resize(
+            heatmap, (heatmap_width, heatmap_height),
+            interpolation=cv.INTER_LANCZOS4
+        )
+        heatmap_image[y1:y2, x1:x2] = heatmap_resized
+
+    image_blend = cv.addWeighted(image, alpha, heatmap_image, 1 - alpha, 0)
+
+    return image_blend
 
 
 def draw_labeled_rectangle(
@@ -57,6 +97,14 @@ def draw_labeled_rectangle(
     )
 
 
+def draw_boxlist(image, boxlist, color):
+    boxes = boxlist.convert('xyxy').bbox.cpu().numpy().round().astype(np.int)
+    for x1, y1, x2, y2 in boxes:
+        draw_labeled_rectangle(
+            image, (x1, y1), (x2, y2), "", color, (255, 255, 255)
+        )
+
+
 def create_response_heatmaps(response_maps, reduction='mean'):
     if reduction == 'mean':
         reduce_func = np.mean
@@ -84,135 +132,145 @@ def create_response_heatmaps(response_maps, reduction='mean'):
     return response_heatmaps
 
 
-def stack_response_heatmaps(
-    heatmaps, direction='horizontal', *, out_width=None, out_height=None
-):
-    if direction == 'horizontal':
-        stack_func = np.hstack
-    elif direction == 'vertical':
-        stack_func = np.vstack
-    else:
-        raise ValueError(f"unsupported stacking direction {direction}")
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="SiamMOT response map visualization."
+    )
+    parser.add_argument(
+        "--config-file",
+        default="",
+        metavar='FILE',
+        help="path to config file",
+        type=str
+    )
+    parser.add_argument(
+        "--model-file",
+        default=None,
+        metavar='MODEL',
+        help="path to model file",
+        type=str
+    )
+    parser.add_argument(
+        '--local_rank',
+        type=int,
+        default=0,
+        metavar='N',
+        help="local process rank"
+    )
+    parser.add_argument(
+        'exemplar_image_file',
+        metavar='EXEMPLAR',
+        help="exemplar image file path"
+    )
+    parser.add_argument(
+        'search_image_file', metavar='SEARCH', help="search image file path"
+    )
+    parser.add_argument(
+        'opts',
+        help="overwriting the training config from commandline",
+        default=None,
+        nargs=argparse.REMAINDER
+    )
 
-    if (out_width is None) and (out_height is None):
-        heatmaps_resized = heatmaps
-    else:
-        heatmaps_resized = []
+    args = parser.parse_args()
 
-        for heatmap in heatmaps:
-            height, width, _ = heatmap.shape
-
-            new_width = width if out_width is None else out_width
-            new_height = height if out_height is None else out_height
-
-            heatmap_resized = cv.resize(
-                heatmap, (new_width, new_height),
-                interpolation=cv.INTER_LANCZOS4
-            )
-            heatmaps_resized.append(heatmap_resized)
-
-    heatmaps_stacked = stack_func(heatmaps_resized)
-
-    return heatmaps_stacked
+    return args
 
 
-def draw_heatmaps_comparison(
-    image,
-    boxes_1,
-    boxes_2,
-    heatmaps_1,
-    heatmaps_2,
-    *,
-    color_1=(89, 141, 252),
-    color_2=(96, 207, 145),
-    background=(0, 0, 0)
-):
-    max_width = max(image.shape[1], heatmaps_1.shape[1], heatmaps_2.shape[1])
-    frame_parts = []
+class SiamMOTImageInferencer:
+    def __init__(self, cfg, device, model_file=None) -> None:
+        self.device = device
+        self.model = build_siammot(cfg).to(self.device)
 
-    for frame_part in (heatmaps_1, heatmaps_2, image):
-        _, width, _ = frame_part.shape
-
-        width_diff_half = (max_width - width) / 2
-        left_px = int(math.ceil(width_diff_half))
-        right_px = int(math.floor(width_diff_half))
-
-        frame_part = cv.copyMakeBorder(
-            frame_part,
-            top=0,
-            bottom=0,
-            left=left_px,
-            right=right_px,
-            borderType=cv.BORDER_CONSTANT,
-            value=background
+        checkpointer = DetectronCheckpointer(
+            cfg, self.model, save_dir=model_file
         )
-        frame_parts.append(frame_part)
+        if os.path.isfile(model_file):
+            checkpointer.load(model_file)
+        elif os.path.isdir(model_file):
+            checkpointer.load(use_latest=True)
+        else:
+            raise KeyError("No checkpoint is found")
 
-    for boxes, color in zip((boxes_1, boxes_2), (color_1, color_2)):
-        for box in boxes:
-            draw_labeled_rectangle(
-                image,
-                tuple(box[:2]),
-                tuple(box[2:]),
-                '',
-                rect_color=color,
-                label_color=(255, 255, 255)
+        self.transform = build_siam_augmentation(cfg, is_train=False)
+        self.dummy_bbox = torch.tensor([[0, 0, 1, 1]])
+
+        self.model.eval()
+
+    def predict_on_file(self, image_file_path, to_cpu=True) -> BoxList:
+        image = Image.open(image_file_path)
+        return self.predict(image, to_cpu)
+
+    def predict(self, image, to_cpu=True) -> BoxList:
+        image_size = image.size
+        image_width, image_height = image_size
+
+        dummy_target = BoxList(self.dummy_bbox, image_size, mode='xywh')
+        image_tensor, _ = self.transform(image, dummy_target)
+        image_tensor = image_tensor.to(self.device)
+        boxlist = self.model(image_tensor)[0]
+
+        boxlist = boxlist.resize([image_width, image_height]).convert('xywh')
+
+        if to_cpu:
+            boxlist = boxlist.to(torch.device('cpu'))
+
+        return boxlist
+
+
+def create_sr_boxlist(boxlist):
+    boxlist = boxlist.convert('xywh')
+    x, y, w, h = boxlist.bbox.split(1, dim=-1)
+
+    cx, cy = x + w / 2, y + h / 2
+    new_w, new_h = w * 2, h * 2
+    new_x, new_y = cx - w, cy - h
+
+    boxes = torch.cat((new_x, new_y, new_w, new_h), dim=-1)
+    expanded_boxlist = BoxList(boxes, boxlist.size, mode='xywh')
+
+    return expanded_boxlist
+
+
+def main():
+    args = parse_args()
+    cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
+    cfg.freeze()
+
+    device = torch.device(cfg.MODEL.DEVICE)
+    torch.cuda.set_device(args.local_rank)
+
+    inferencer = SiamMOTImageInferencer(cfg, device, args.model_file)
+    response_map = None
+
+    def hook_fn(module, input, output):
+        if isinstance(module, DeformableSiameseAttention):
+            nonlocal response_map
+            attentional_template_features, attentional_sr_features = output
+            response_map = xcorr_depthwise(
+                attentional_sr_features, attentional_template_features
             )
 
-    frame = np.vstack(frame_parts)
-    return frame
+        return None
 
+    torch.nn.modules.module.register_module_forward_hook(hook_fn)
 
-def iter_response_maps_and_boxes(vis_dir_path, seq_name):
-    data_dir = pathlib.Path(vis_dir_path) / seq_name
-    response_maps_boxes_iter = iter(
-        sorted(list(data_dir.iterdir()), key=lambda f: f.stem)
-    )
+    with torch.no_grad():
+        exemplar_boxlist = inferencer.predict_on_file(args.exemplar_image_file)
+        inferencer.predict_on_file(args.search_image_file)
 
-    while True:
-        try:
-            response_map_file = next(response_maps_boxes_iter)
-            boxes_file = next(response_maps_boxes_iter)
-        except StopIteration:
-            break
-        else:
-            response_map = np.load(response_map_file)
-            boxes = np.load(boxes_file)
-            yield response_map, boxes
-
-
-def iter_images(dataset_dir_path, seq_name):
-    images_dir = (
-        pathlib.Path(dataset_dir_path) / 'raw_data' /
-        'Insight-MVT_Annotation_Test' / seq_name
-    )
-    images_list = sorted(list(images_dir.iterdir()), key=lambda f: f.stem)
-    for image_file in images_list:
-        image = cv.imread(str(image_file), cv.IMREAD_COLOR)
-        yield image
-
-
-def resize_boxes(boxes_xyxy, old_size, new_size):
-    scale_xy = np.asarray(new_size) / np.asarray(old_size)
-    scale = np.concatenate((scale_xy, scale_xy))
-    boxes_resized = boxes_xyxy * scale
-
-    return boxes_resized
-
-
-@click.command()
-@click.argument('dataset_dir_path', type=click.Path(exists=True))
-@click.argument('vis_dir_path', type=click.Path(exists=True))
-@click.argument('seq_id')
-def main(dataset_dir_path, vis_dir_path, seq_id):
-    seq_name = 'MVI_' + seq_id
-
-    for image, (response_map, boxes) in zip(
-        iter_images(dataset_dir_path, seq_name),
-        iter_response_maps_and_boxes(vis_dir_path, seq_name)
-    ):
-        print(image.shape, response_map.shape, boxes.shape)
-        cv.imshow("Preview", image)
+    valid_boxes_mask = exemplar_boxlist.get_field('ids') >= 0
+    valid_boxlist = exemplar_boxlist[valid_boxes_mask]
+    sr_boxlist = create_sr_boxlist(valid_boxlist)
+    image = cv.imread(args.search_image_file)
+    heatmaps = create_response_heatmaps(response_map.cpu().numpy())
+    image_heatmap_blend = draw_heatmaps_on_image(image, heatmaps, sr_boxlist)
+    draw_boxlist(image_heatmap_blend, valid_boxlist, (128, 128, 128))
+    # cv.imwrite('response_maps_vis.png', image)
+    cv.imshow("Preview", image_heatmap_blend)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     return 0
 

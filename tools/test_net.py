@@ -20,7 +20,6 @@ from siammot.engine.inferencer import DatasetInference
 from siammot.modelling.rcnn import build_siammot
 from siammot.utils.get_model_name import get_model_name
 
-
 try:
     from apex import amp
 except ImportError:
@@ -30,22 +29,24 @@ parser = argparse.ArgumentParser(
     description="PyTorch Video Object Detection Inference"
 )
 parser.add_argument(
-    "--config-file", default="", metavar="FILE", help="path to config file",
+    "--config-file",
+    default="",
+    metavar='FILE',
+    help="path to config file",
     type=str
 )
 parser.add_argument(
     "--output-dir", default="", help="path to output folder", type=str
 )
 parser.add_argument(
-    "--model-file", default=None, metavar="FILE", help="path to model file",
+    "--model-file",
+    default=None,
+    metavar='FILE',
+    help="path to model file",
     type=str
 )
 parser.add_argument(
-    '--local_rank',
-    type=int,
-    default=0,
-    metavar='N',
-    help="local process rank"
+    '--local_rank', type=int, default=0, metavar='N', help="local process rank"
 )
 parser.add_argument("--test-dataset", default="MOT17_DPM", type=str)
 parser.add_argument("--set", default="test", type=str)
@@ -53,20 +54,23 @@ parser.add_argument("--gpu-id", default=0, type=int)
 parser.add_argument("--num-gpus", default=1, type=int)
 parser.add_argument("--eval-csv-file", default=None, type=str)
 parser.add_argument(
-    'opts', help="overwriting the training config from commandline",
-    default=None, nargs=argparse.REMAINDER
+    'opts',
+    help="overwriting the training config from commandline",
+    default=None,
+    nargs=argparse.REMAINDER
 )
+
 
 def test(cfg, args, output_dir):
     torch.cuda.empty_cache()
 
     torch.cuda.set_device(args.local_rank)
-    
+
     # Construct model graph
     model = build_siammot(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
-    
+
     # Load model params
     model_file = args.model_file
     checkpointer = DetectronCheckpointer(cfg, model, save_dir=model_file)
@@ -76,22 +80,27 @@ def test(cfg, args, output_dir):
         checkpointer.load(use_latest=True)
     else:
         raise KeyError("No checkpoint is found")
-    
+
     # Load testing dataset
     dataset_key = args.test_dataset
     dataset, _ = load_dataset_anno(cfg, dataset_key, args.set)
     dataset = sorted(dataset)
-    
+
     # do inference on dataset
     data_filter_fn = build_data_filter_fn(dataset_key, dataset=dataset)
-    
+
     # load public detection
     public_detection = None
     if cfg.INFERENCE.USE_GIVEN_DETECTIONS:
         public_detection = load_public_detection(cfg, dataset_key)
-    
+
     dataset_inference = DatasetInference(
-        cfg, model, dataset, output_dir, data_filter_fn, public_detection,
+        cfg,
+        model,
+        dataset,
+        output_dir,
+        data_filter_fn,
+        public_detection,
         motsummary_csv_file_name=args.eval_csv_file
     )
     dataset_inference()
@@ -102,12 +111,12 @@ def main():
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
-    
+
     model_name = get_model_name(cfg)
     output_dir = os.path.join(args.output_dir, model_name)
     if not os.path.exists(output_dir):
         mkdir(output_dir)
-    
+
     test(cfg, args, output_dir)
 
 
