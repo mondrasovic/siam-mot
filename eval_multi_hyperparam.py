@@ -38,6 +38,8 @@ def build_output_dir_path(
 ) -> str:
     if dataset_name == 'UA_DETRAC':
         dataset_shortcut = 'uadt'
+    elif 'MOT' in dataset_name:
+        dataset_shortcut = 'mot'
     else:
         raise ValueError('unrecognized dataset name')
 
