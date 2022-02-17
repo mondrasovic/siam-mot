@@ -7,6 +7,21 @@ import sys
 
 import tqdm
 
+import json
+
+
+def make_crowdhuman_iter(box_type='fbox'):
+    def _iter_crowdhuman_annos(anno_file_path):
+        with open(anno_file_path) as anno_file:
+            for anno_entry in map(json.loads, anno_file.readlines()):
+                image_id = anno_entry['ID']
+                gt_boxes = anno_entry['gtboxes']
+
+                for box_entry in gt_boxes[box_type]:
+                    yield image_id, box_entry
+
+    return _iter_crowdhuman_annos
+
 
 def export_coco_dataset(
     dataset_input_dir, dataset_output_dir, dataset_name, subset
