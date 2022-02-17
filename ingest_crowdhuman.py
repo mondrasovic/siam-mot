@@ -1,37 +1,58 @@
-import argparse
+import datetime
 import itertools
 import json
 import os
 import shutil
 import sys
 
+import click
 import tqdm
-
-import json
-
-
-def make_crowdhuman_iter(box_type='fbox'):
-    def _iter_crowdhuman_annos(anno_file_path):
-        with open(anno_file_path) as anno_file:
-            for anno_entry in map(json.loads, anno_file.readlines()):
-                image_id = anno_entry['ID']
-                gt_boxes = anno_entry['gtboxes']
-
-                for box_entry in gt_boxes[box_type]:
-                    yield image_id, box_entry
-
-    return _iter_crowdhuman_annos
+from PIL import Image
 
 
-def export_coco_dataset(
-    dataset_input_dir, dataset_output_dir, dataset_name, subset
+def ensure_empty_dir_exsits(dir_path):
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+    os.makedirs(dir_path)
+
+
+def get_current_date():
+    today = datetime.date.today()
+    date = today.strftime(r'%Y/%m/%d')
+    return date
+
+
+def iter_crowdhuman_anno(anno_file_path, box_type='fbox'):
+    with open(anno_file_path) as anno_file:
+        for anno_entry in map(json.loads, anno_file.readlines()):
+            image_id = anno_entry['ID']
+            gt_boxes = anno_entry['gtboxes']
+
+            def _iter_boxes():
+                for gt_box in gt_boxes:
+                    box = gt_box[box_type]
+                    yield box
+
+            yield image_id, _iter_boxes()
+
+
+def get_image_size(image_file_path):
+    image = Image.open(image_file_path)
+    return image.size
+
+
+def convert_anno_crowdhuman_to_coco(
+    crowdhuman_anno_file_path,
+    crowdhuman_images_dir_path,
+    coco_output_dir,
+    subset_type,
+    box_type='fbox'
 ):
-    dataset_output_dir = os.path.join(dataset_output_dir, dataset_name)
-    images_dir_path = os.path.join(dataset_output_dir, 'data')
+    coco_images_dir_path = os.path.join(coco_output_dir, 'Images')
+    coco_anno_dir_path = os.path.join(coco_output_dir, 'annotations')
 
-    if os.path.exists(dataset_output_dir):
-        shutil.rmtree(dataset_output_dir)
-    os.makedirs(images_dir_path)
+    ensure_empty_dir_exsits(coco_images_dir_path)
+    ensure_empty_dir_exsits(coco_anno_dir_path)
 
     data = {}
     data['info'] = {
@@ -40,7 +61,7 @@ def export_coco_dataset(
         'description': 'CrowdHuman dataset',
         'contributor': '',
         'url': '',
-        'date_created': ''
+        'date_created': get_current_date()
     }
     data['licenses'] = []
     person_cat_id = 0
@@ -56,37 +77,36 @@ def export_coco_dataset(
     data['annotations'] = annotations
 
     image_id_gen = itertools.count()
-    annotation_id_gen = itertools.count()
-
-    image_height, image_width = 540, 960
+    anno_id_gen = itertools.count()
 
     tqdm_pbar = tqdm.tqdm(file=sys.stdout)
     with tqdm_pbar as pbar:
-        data_iter = iter_image_boxes_pairs(dataset_input_dir, subset)
-        for seq_num, image_num, image_file_path, boxes in data_iter:
-            pbar.set_description(
-                f"processing seq. {seq_num}, sample {image_file_path}"
+        anno_iter = iter_crowdhuman_anno(crowdhuman_anno_file_path, box_type)
+        for image_id, boxes_iter in anno_iter:
+            pbar.set_description(f"processing image with ID {image_id}")
+
+            image_file_name = f'{image_id}.jpg'
+            crowdhuman_image_file_path = os.path.join(
+                crowdhuman_images_dir_path, image_file_name
+            )
+            image_width, image_height = get_image_size(
+                crowdhuman_image_file_path
             )
 
-            dst_file_name = f'{seq_num:02d}_{image_num:04d}.jpg'
-            dst_file_path = os.path.join(images_dir_path, dst_file_name)
-            shutil.copyfile(image_file_path, dst_file_path)
+            new_image_id = next(image_id_gen)
 
-            image_id = next(image_id_gen)
             image_data = {
-                'id': image_id,
-                'file_name': dst_file_name,
-                'seq_num': seq_num,
-                'image_num': image_num,
+                'id': new_image_id,
+                'file_name': image_file_name,
                 'height': image_height,
                 'width': image_width,
             }
             images.append(image_data)
 
-            for box in boxes:
+            for box in boxes_iter:
                 annotation = {
-                    'id': next(annotation_id_gen),
-                    'image_id': image_id,
+                    'id': next(anno_id_gen),
+                    'image_id': new_image_id,
                     'category_id': person_cat_id,
                     'bbox': box,
                     'area': box[2] * box[3],
@@ -96,12 +116,41 @@ def export_coco_dataset(
 
             pbar.update()
 
-    json_file_path = os.path.join(dataset_output_dir, 'annotations.json')
+    anno_file_name = f'annotation_{subset_type}_{box_type}.json'
+    json_file_path = os.path.join(coco_anno_dir_path, anno_file_name)
     with open(json_file_path, 'wt') as out_file:
         json.dump(data, out_file)
 
 
-def main():
+@click.command()
+@click.argument('crowdhuman_anno_file_path', type=click.Path(exists=True))
+@click.argument('crowdhuman_images_dir_path', type=click.Path(exists=True))
+@click.argument('coco_dataset_dir_path', type=click.Path())
+@click.option(
+    '-b',
+    '--box-type',
+    type=click.Choice(['fbox', 'vbox']),
+    default='fbox',
+    show_default=True,
+    help="Type of bounding box to load, i.e., (f)ull vs. (v)isible."
+)
+@click.option(
+    '-s',
+    '--subset-type',
+    type=click.Choice(['train', 'val']),
+    default='train',
+    show_default=True,
+    help="Type of the data subset."
+)
+def main(
+    crowdhuman_anno_file_path, crowdhuman_images_dir_path,
+    coco_dataset_dir_path, box_type, subset_type
+):
+    convert_anno_crowdhuman_to_coco(
+        crowdhuman_anno_file_path, crowdhuman_images_dir_path,
+        coco_dataset_dir_path, subset_type, box_type
+    )
+
     return 0
 
 
