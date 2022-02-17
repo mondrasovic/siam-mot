@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import json
 import os
 import shutil
 import sys
@@ -7,7 +8,9 @@ import sys
 import tqdm
 
 
-def export_dataset(dataset_input_dir, dataset_output_dir, dataset_name, subset):
+def export_coco_dataset(
+    dataset_input_dir, dataset_output_dir, dataset_name, subset
+):
     dataset_output_dir = os.path.join(dataset_output_dir, dataset_name)
     images_dir_path = os.path.join(dataset_output_dir, 'data')
 
@@ -25,12 +28,12 @@ def export_dataset(dataset_input_dir, dataset_output_dir, dataset_name, subset):
         'date_created': ''
     }
     data['licenses'] = []
-    vehicle_cat_id = 0
+    person_cat_id = 0
     data['categories'] = [
         {
-            'id': vehicle_cat_id,
-            'name': 'vehicle',
-            'supercategory': 'vehicle'
+            'id': person_cat_id,
+            'name': 'person',
+            'supercategory': 'person'
         }
     ]
     images, annotations = [], []
@@ -69,7 +72,7 @@ def export_dataset(dataset_input_dir, dataset_output_dir, dataset_name, subset):
                 annotation = {
                     'id': next(annotation_id_gen),
                     'image_id': image_id,
-                    'category_id': vehicle_cat_id,
+                    'category_id': person_cat_id,
                     'bbox': box,
                     'area': box[2] * box[3],
                     'iscrowd': 0,
