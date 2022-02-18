@@ -2,18 +2,11 @@ import datetime
 import itertools
 import json
 import os
-import shutil
 import sys
 
 import click
 import tqdm
 from PIL import Image
-
-
-def ensure_empty_dir_exsits(dir_path):
-    if os.path.exists(dir_path):
-        shutil.rmtree(dir_path)
-    os.makedirs(dir_path)
 
 
 def get_current_date():
@@ -51,8 +44,8 @@ def convert_anno_crowdhuman_to_coco(
     coco_images_dir_path = os.path.join(coco_output_dir, 'Images')
     coco_anno_dir_path = os.path.join(coco_output_dir, 'annotations')
 
-    ensure_empty_dir_exsits(coco_images_dir_path)
-    ensure_empty_dir_exsits(coco_anno_dir_path)
+    os.makedirs(coco_images_dir_path, exist_ok=True)
+    os.makedirs(coco_anno_dir_path, exist_ok=True)
 
     data = {}
     data['info'] = {
