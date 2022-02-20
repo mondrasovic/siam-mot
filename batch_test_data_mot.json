@@ -1,13 +1,13 @@
 {
-    "train_dir_path": "./demos/models/mot_dsa_2x/DLA-34-FPN_box_EMM_UA_MOT17_mot",
+    "train_dir_path": "./demos/models/coco_dsa_2x/DLA-34-FPN_box_EMM_COCO17_train_coco",
     "local_ranks": [
         0,
         1
     ],
-    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_MOT17_fri.yaml",
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_COCO_fri.yaml",
     "dataset_name": "MOT17",
-    "data_subset": "test",
-    "output_root_path": "./eval_mot_dsa_2x",
+    "data_subset": "train",
+    "output_root_path": "./eval_mot_coco_dsa_2x",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0010000",
