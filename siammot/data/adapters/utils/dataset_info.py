@@ -55,5 +55,5 @@ dataset_maps['UA_DETRAC'] = [
 ]
 
 dataset_maps['KITTI_MOT'] = [
-    'KITTI-MOT_GluonCV', 'anno.json', 'splits.json', 'video'
+    'KITTI-MOT_square_GluonCV', 'anno.json', 'splits.json', 'video'
 ]

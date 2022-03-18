@@ -12,47 +12,53 @@ import numpy as np
 
 def iter_img_files_and_stages(imgs_dir_path, debug_dump_file_path):
     imgs_dir = pathlib.Path(imgs_dir_path)
-    
+
     with open(debug_dump_file_path, 'rt') as debug_file:
         content = json.load(debug_file)
         frames_data = content['frames']
-    
+
     def _read_entities(stage_data):
         status_vals = ('inactive', 'dormant', 'active')
-    
+
         return sorted(
             stage_data['entities'],
             key=lambda e: status_vals.index(e['status'])
         )
-    
+
     def _read_stages(frame_data):
         stages_order = ('input', 'after NMS', 'after ReID', 'output')
         stages = frame_data['stages']
 
         for stage_name in stages_order:
             stage_data = stages.get(stage_name)
+
             if stage_data is not None:
                 entities = _read_entities(stage_data)
                 yield stage_name, entities
-    
+
     for file, frame_data in zip(imgs_dir.iterdir(), frames_data):
         img_file_path = str(file)
         stages_data = tuple(_read_stages(frame_data))
         yield img_file_path, stages_data
 
 
+def clip_point(point, width, height):
+    x, y = point
+    return (np.clip(x, 0, width - 1), np.clip(y, 0, height - 1))
+
+
 def labeled_rectangle(
-    img,
-    start_pt,
-    end_pt,
-    label,
-    rect_color,
-    label_color,
-    alpha=0.85
+    img, start_pt, end_pt, label, rect_color, label_color, alpha=0.85
 ):
+    height, width, _ = img.shape
+    start_pt = clip_point(start_pt, width, height)
+    end_pt = clip_point(end_pt, width, height)
     (x1, y1), (x2, y2) = start_pt, end_pt
 
     roi = img[y1:y2, x1:x2]
+    if min(roi.shape) == 0:
+        return
+
     rect = np.ones_like(roi) * 255
     img[y1:y2, x1:x2] = cv.addWeighted(roi, alpha, rect, 1 - alpha, 0)
 
@@ -60,14 +66,13 @@ def labeled_rectangle(
     font_scale = 0.8
     font_thickness = 1
 
-    (text_width, text_height), baseline = cv.getTextSize(
-        label, font_face, font_scale, font_thickness)
+    (text_width, text_height
+    ), baseline = cv.getTextSize(label, font_face, font_scale, font_thickness)
     text_rect_end = (
         start_pt[0] + text_width, start_pt[1] + text_height + baseline
     )
     cv.rectangle(img, start_pt, text_rect_end, rect_color, -1)
-    
-    # TODO Somehow calculate the shift.
+
     text_start_pt = (start_pt[0] + 1, start_pt[1] + text_height + 3)
     cv.putText(
         img, label, text_start_pt, font_face, font_scale, label_color,
@@ -92,10 +97,15 @@ def render_entity(img, stage_name, entity):
         rect_color = (255, 51, 51)
     else:
         rect_color = (0, 0, 153)
-    
+
     render_stage_text = functools.partial(
-        cv.putText, img=img, text=f"Stage: {stage_name}", org=(10, 50),
-        fontFace=cv.FONT_HERSHEY_COMPLEX_SMALL, fontScale=3, lineType=cv.LINE_AA
+        cv.putText,
+        img=img,
+        text=f"Stage: {stage_name}",
+        org=(10, 50),
+        fontFace=cv.FONT_HERSHEY_COMPLEX_SMALL,
+        fontScale=3,
+        lineType=cv.LINE_AA
     )
     render_stage_text(color=(0, 0, 0), thickness=5)
     render_stage_text(color=(255, 255, 255), thickness=3)
@@ -105,11 +115,7 @@ def render_entity(img, stage_name, entity):
 
 
 def process_frame(
-    frame_idx,
-    img_file_path,
-    stages_data,
-    output_dir,
-    stage_names
+    frame_idx, img_file_path, stages_data, output_dir, stage_names
 ):
     img_orig = cv.imread(img_file_path, cv.IMREAD_COLOR)
 
@@ -119,7 +125,7 @@ def process_frame(
 
             for entity in entities_data:
                 render_entity(curr_img, stage_name, entity)
-            
+
             img_file_name = f'frame_{frame_idx:04d}_{j:02d}_{stage_name}.jpg'
             img_file_path = str(output_dir / img_file_name)
             cv.imwrite(img_file_path, curr_img)
@@ -144,10 +150,11 @@ def main(imgs_dir_path, output_dir_path, debug_dump_file_path, stages):
         stage_names = set(stages)
         args_iter = (
             (i, img_file_path, stages_data, output_dir, stage_names)
-            for i, (img_file_path, stages_data) in enumerate(data_iter, start=1)
+            for i, (img_file_path,
+                    stages_data) in enumerate(data_iter, start=1)
         )
         pool.starmap(process_frame, args_iter, chunksize=2)
-    
+
     return 0
 
 
