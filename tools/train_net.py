@@ -21,7 +21,7 @@ from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from siammot.configs.defaults import cfg
 from siammot.data.build_train_data_loader import build_train_data_loader
 from siammot.engine.tensorboard_writer import TensorboardWriter
-from siammot.engine.trainer import do_train, do_train_old
+from siammot.engine.trainer import do_train_grad_accum, do_train
 from siammot.modelling.rcnn import build_siammot
 from siammot.utils.get_model_name import get_model_name
 
@@ -71,6 +71,13 @@ def parse_args():
     return args
 
 
+def freeze_all_except_attention(model):
+    with torch.no_grad():
+        for name, layer in model.named_parameters():
+            if 'roi_heads.track.tracker.attention' not in name:
+                layer.requires_grad = False
+
+
 def train(cfg, train_dir, local_rank, distributed, logger):
     model = build_siammot(cfg)
     device = torch.device(local_rank)
@@ -78,6 +85,8 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer)
+
+    freeze_all_except_attention(model)
 
     # Initialize mixed-precision training
     use_mixed_precision = cfg.DTYPE == 'float16'
@@ -113,10 +122,19 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
     tensorboard_writer = TensorboardWriter(cfg, train_dir)
 
-    do_train_old(
-        model, data_loader, optimizer, scheduler, checkpointer, device,
-        checkpoint_period, arguments, logger, tensorboard_writer
-    )
+    if cfg.GRAD_ACCUM.ENABLE:
+        n_accum_iters = cfg.GRAD_ACCUM.N_ITERS
+
+        do_train_grad_accum(
+            model, data_loader, optimizer, scheduler, checkpointer, device,
+            checkpoint_period, arguments, logger, n_accum_iters,
+            tensorboard_writer
+        )
+    else:
+        do_train(
+            model, data_loader, optimizer, scheduler, checkpointer, device,
+            checkpoint_period, arguments, logger, tensorboard_writer
+        )
 
     return model
 

@@ -1,13 +1,13 @@
 {
-    "train_dir_path": "./demos/models/coco_dsa_2x/DLA-34-FPN_box_EMM_COCO17_train_coco",
+    "train_dir_path": "./demos/models/crowdhuman_dsa_2x/DLA-34-FPN_box_EMM_crowdhuman_train_fbox_crowdhuman_val_fbox_crowdhuman",
     "local_ranks": [
         0,
         1
     ],
-    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_COCO_fri.yaml",
-    "dataset_name": "MOT17",
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_CrowdHuman_fri.yaml",
+    "dataset_name": "MOT17_DPM",
     "data_subset": "train",
-    "output_root_path": "./eval_mot_coco_dsa_2x",
+    "output_root_path": "./eval_finetune_crowdhuman_dsa_2x",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0010000",
@@ -16,11 +16,7 @@
         "0025000",
         "0030000",
         "0035000",
-        "0040000",
-        "0045000",
-        "0050000",
-        "0055000",
-        "0060000"
+        "0040000"
     ],
     "cfg_opts_groups": [
         [

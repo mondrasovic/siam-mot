@@ -10,7 +10,7 @@ from maskrcnn_benchmark.utils.metric_logger import MetricLogger
 from .tensorboard_writer import TensorboardWriter
 
 
-def do_train(
+def do_train_grad_accum(
     model,
     data_loader,
     optimizer,
@@ -20,6 +20,7 @@ def do_train(
     checkpoint_period,
     arguments,
     logger,
+    n_accum_iters,
     tensorboard_writer: TensorboardWriter = None
 ):
     logger.info("Start training")
@@ -29,8 +30,6 @@ def do_train(
     model.train()
     start_training_time = time.time()
     end = time.time()
-
-    n_accum_iters = 12
 
     for iteration, (images, targets, _) in enumerate(data_loader, start_iter):
         if any(len(target) < 1 for target in targets):
@@ -110,7 +109,7 @@ def do_train(
     )
 
 
-def do_train_old(
+def do_train(
     model,
     data_loader,
     optimizer,
