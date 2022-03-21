@@ -86,7 +86,7 @@ def train(cfg, train_dir, local_rank, distributed, logger):
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer)
 
-    freeze_all_except_attention(model)
+    # freeze_all_except_attention(model)
 
     # Initialize mixed-precision training
     use_mixed_precision = cfg.DTYPE == 'float16'
