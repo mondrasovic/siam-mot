@@ -92,8 +92,6 @@ cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION = 0.8
 # such as caltech roadside pedestrian
 cfg.MODEL.TRACK_HEAD.EMM.COSINE_WINDOW_WEIGHT = 0.4
 
-cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP = False
-
 # all video-related parameters
 cfg.VIDEO = CN()
 # the length of video clip for training/testing

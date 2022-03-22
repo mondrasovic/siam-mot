@@ -25,12 +25,12 @@ class EMM(torch.nn.Module):
         self.attention = build_attention(cfg)
         # self.subset_sampler = build_attention_subset_sampler(cfg)
 
-        if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
-            self.response_map_vis = (
-                build_or_get_existing_response_map_visualizer()
-            )
-        else:
-            self.response_map_vis = None
+        # if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
+        #     self.response_map_vis = (
+        #         build_or_get_existing_response_map_visualizer()
+        #     )
+        # else:
+        #     self.response_map_vis = None
 
         self.track_utils = track_utils
         self.amodal = cfg.INPUT.AMODAL
