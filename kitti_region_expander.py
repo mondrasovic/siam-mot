@@ -24,9 +24,9 @@ def make_image_square(image):
     left = int(math.ceil(width_diff_half))
     right = int(math.floor(width_diff_half))
 
-    border_color = mean_image_color(image)
+    # border_color = mean_image_color(image)
     square_image = cv.copyMakeBorder(
-        image, top, bottom, left, right, cv.BORDER_CONSTANT, value=border_color
+        image, top, bottom, left, right, cv.BORDER_CONSTANT, value=(0, 0, 0)
     )
 
     return square_image, (top, bottom, left, right)
