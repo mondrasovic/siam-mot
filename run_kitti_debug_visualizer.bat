@@ -1,1 +1,1 @@
-python ./tools/solver_debug_visualizer.py ../../datasets/KITTI-MOT_square_small_GluonCV/raw_data/training/image_02/0000 ./kitti_visualization ./test_output_tmp/DLA-34-FPN_box_EMM_UA_DETRAC/track_solver_debug_0000.json input output
+python ./tools/solver_debug_visualizer.py ../../datasets/KITTI-MOT_square_GluonCV/raw_data/training/image_02/0000 ./kitti_visualization ./test_output_tmp/DLA-34-FPN_box_EMM_KITTI_MOT/track_solver_debug_0000.json input output
