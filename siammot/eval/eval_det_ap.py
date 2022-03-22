@@ -27,8 +27,8 @@ def eval_det_ap(
     :return: Average Precision (AP) over different thresholds
     """
     if class_table is None:
-        # class_table = ["person"]
-        class_table = ["vehicle"]
+        class_table = ["person"]
+        # class_table = ["vehicle"]
     num_classes = len(class_table)
 
     all_scores = [

@@ -73,17 +73,18 @@ MODEL:
       TRACK_LOSS_WEIGHT: 1.
 
 SOLVER:
-  BASE_LR: 0.001
+  BASE_LR: 0.0007
   WEIGHT_DECAY: 0.0001
-  STEPS: (15000, 30000, 45000)
-  MAX_ITER: 60000
-  CHECKPOINT_PERIOD: 20
+  STEPS: (20000, 35000)
+  MAX_ITER: 40000
+  CHECKPOINT_PERIOD: 5000
   VIDEO_CLIPS_PER_BATCH: 2
 
 DATASETS:
   # SET THIS PATH CORRECTLY
   ROOT_DIR: "/home/mond/s/ssd/datasets"
-  TRAIN: ("crowdhuman_train_vbox",)
+  TRAIN: ("crowdhuman_train_fbox", "crowdhuman_val_fbox")
+
 
 DATALOADER:
   SIZE_DIVISIBILITY: 32

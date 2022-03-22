@@ -40,8 +40,8 @@ SOLVER:
 
 DATASETS:
   # SET THIS PATH CORRECTLY
-  ROOT_DIR: ""
-  TRAIN: ( "crowdhuman_train_fbox", "crowdhuman_val_fbox")
+  ROOT_DIR: "/home/mond/s/ssd/datasets"
+  TRAIN: ("crowdhuman_train_fbox", "crowdhuman_val_fbox")
 
 DATALOADER:
   SIZE_DIVISIBILITY: 32
