@@ -9,4 +9,4 @@ python -m torch.distributed.launch \
     --nproc_per_node=$NUM_GPUS_PER_NODE \
     --nnodes=$NUM_NODES \
     --node_rank $NODE_RANK \
-    tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_CrowdHuman_fri.yaml --train-dir ./demos/models/crowdhuman_dsa_2x --model-suffix crowdhuman MODEL.TRACK_HEAD.ATTENTION.ENABLE "True" MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY "all"
+    tools/train_net.py --config-file ./configs/dla/DLA_34_FPN_EMM_CrowdHuman_fri.yaml --train-dir ./demos/models/crowdhuman_orig_big_2x --model-suffix crowdhuman MODEL.TRACK_HEAD.ATTENTION.ENABLE "False" MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY "all"

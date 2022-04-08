@@ -134,10 +134,10 @@ class EMM(torch.nn.Module):
                 bb, bb_conf, boxes, amodal=self.amodal
             )
 
-            if self.response_map_vis:
-                self.response_map_vis.add_response_map(
-                    response_map, track_result
-                )
+            # if self.response_map_vis:
+            #     self.response_map_vis.add_response_map(
+            #         response_map, track_result
+            #     )
 
             return {}, track_result, {}
 
