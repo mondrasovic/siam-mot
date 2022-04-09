@@ -1,8 +1,15 @@
 import argparse
 import os
-import gc
+import pathlib
+import sys
+
+# TODO Remove this ugly path modification.
+project_root = str(pathlib.Path(__file__).parent.parent.absolute())
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 import torch
+import torch.distributed as dist
 from maskrcnn_benchmark.solver import make_lr_scheduler, make_optimizer
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.utils.collect_env import collect_env_info
@@ -88,11 +95,11 @@ def train(cfg, train_dir, local_rank, distributed, logger):
     # TODO Activate layer freezing.
     # freeze_layers_if_necessary(cfg, model)
 
-    print("Parameters trainability status:".upper())
-    for name, param in model.named_parameters():
-        status = "" if param.requires_grad else " --> FROZEN"
-        print(f"\t{name}{status}")
-    print("-" * 60)
+    # print("Parameters trainability status:".upper())
+    # for name, param in model.named_parameters():
+    #     status = "" if param.requires_grad else " --> FROZEN"
+    #     print(f"\t{name}{status}")
+    # print("-" * 60)
 
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer)
@@ -131,9 +138,6 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
     tensorboard_writer = TensorboardWriter(cfg, train_dir)
 
-    gc.collect()
-    torch.cuda.empty_cache()
-
     do_train(
         model, data_loader, optimizer, scheduler, checkpointer, device,
         checkpoint_period, arguments, logger, tensorboard_writer
@@ -143,15 +147,13 @@ def train(cfg, train_dir, local_rank, distributed, logger):
 
 
 def setup_env_and_logger(args, cfg):
-    num_gpus = int(
-        os.environ["WORLD_SIZE"]
-    ) if "WORLD_SIZE" in os.environ else 1
+    num_gpus = int(os.environ.get('WORLD_SIZE', 1))
     args.distributed = num_gpus > 1
 
     if args.distributed:
         torch.cuda.set_device(args.local_rank)
-        torch.distributed.init_process_group(
-            backend="nccl", init_method="env://"
+        dist.init_process_group(
+            backend='nccl', init_method='env://', rank=args.local_rank
         )
         synchronize()
 
@@ -171,7 +173,6 @@ def setup_env_and_logger(args, cfg):
     with open(args.config_file, "r") as cf:
         config_str = "\n" + cf.read()
         logger.info(config_str)
-    logger.info("Running with config:\n{}".format(cfg))
 
     output_config_path = os.path.join(train_dir, 'config.yml')
     logger.info("Saving config into: {}".format(output_config_path))
