@@ -1,17 +1,23 @@
 {
-    "train_dir_path": "./demos/models/uadt_emb/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
+    "train_dir_path": "./demos/models/uadt_emb_ga/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
     "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
+    "local_ranks": [
+        0,
+        1
+    ],
     "dataset_name": "UA_DETRAC",
     "data_subset": "test",
-    "output_root_path": "./eval_emb",
+    "output_root_path": "./eval_emb_ga",
     "csv_file_name": "eval_results.csv",
     "model_suffixes": [
         "0015000",
-        "0020000",
-        "0025000",
         "0030000",
-        "0035000",
-        "0040000"
+        "0045000",
+        "0060000",
+        "0075000",
+        "0090000",
+        "0105000",
+        "0120000"
     ],
     "cfg_opts_groups": [
         [
@@ -22,10 +28,6 @@
             [
                 "MODEL.TRACK_HEAD.SOLVER_TYPE",
                 "feature_nms"
-            ],
-            [
-                "MODEL.TRACK_HEAD.COS_SIM_THRESH",
-                "0.4"
             ]
         ],
         [
@@ -35,47 +37,12 @@
             ],
             [
                 "MODEL.TRACK_HEAD.SOLVER_TYPE",
-                "feature_nms"
-            ],
-            [
-                "MODEL.TRACK_HEAD.COS_SIM_THRESH",
-                "0.5"
-            ]
-        ],
-        [
-            [
-                "MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS",
-                "triplet"
-            ],
-            [
-                "MODEL.TRACK_HEAD.SOLVER_TYPE",
-                "feature_nms"
-            ],
-            [
-                "MODEL.TRACK_HEAD.COS_SIM_THRESH",
-                "0.6"
-            ]
-        ],
-        [
-            [
-                "MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS",
-                "triplet"
-            ],
-            [
-                "MODEL.TRACK_HEAD.SOLVER_TYPE",
-                "feature_nms"
-            ],
-            [
-                "MODEL.TRACK_HEAD.COS_SIM_THRESH",
-                "0.7"
+                "original"
             ]
         ]
     ],
     "cfg_val_map": {
         "feature_nms": "fNMS",
-        "0.4": "cs04",
-        "0.5": "cs05",
-        "0.6": "cs06",
-        "0.7": "cs07"
+        "original": "orig"
     }
 }

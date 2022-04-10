@@ -30,7 +30,7 @@ def do_train(
     start_training_time = time.time()
     end = time.time()
 
-    n_accum_iters = 12
+    n_accum_iters = 16
 
     for iteration, (images, targets, _) in enumerate(data_loader, start_iter):
         if any(len(target) < 1 for target in targets):
