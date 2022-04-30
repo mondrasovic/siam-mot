@@ -1,0 +1,41 @@
+{
+    "train_dir_path": "./demos/models/uadt_emb_orig_ga/DLA-34-FPN_box_EMM_UA_DETRAC_uadt",
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_UADETRAC_fri.yaml",
+    "local_ranks": [
+        0,
+        1
+    ],
+    "dataset_name": "UA_DETRAC",
+    "data_subset": "test",
+    "output_root_path": "./eval_emb_orig_ga",
+    "csv_file_name": "eval_results.csv",
+    "model_suffixes": [
+        "0015000",
+        "0030000",
+        "0045000",
+        "0060000",
+        "0075000",
+        "0090000",
+        "0105000",
+        "0120000",
+        "0135000",
+        "0150000"
+    ],
+    "cfg_opts_groups": [
+        [
+            [
+                "MODEL.TRACK_HEAD.EMM.FEATURE_EMB_LOSS",
+                "none"
+            ],
+            [
+                "MODEL.TRACK_HEAD.SOLVER_TYPE",
+                "original"
+            ]
+        ]
+    ],
+    "cfg_val_map": {
+        "none": "none",
+        "feature_nms": "fNMS",
+        "original": "orig"
+    }
+}
