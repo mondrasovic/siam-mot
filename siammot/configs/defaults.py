@@ -52,7 +52,7 @@ cfg.MODEL.TRACK_HEAD.MINIMUM_SREACH_REGION = 0
 cfg.MODEL.TRACK_HEAD.MODEL = 'EMM'
 
 cfg.MODEL.TRACK_HEAD.ATTENTION = CN()
-cfg.MODEL.TRACK_HEAD.ATTENTION.ENABLE = True
+cfg.MODEL.TRACK_HEAD.ATTENTION.ENABLE = False
 cfg.MODEL.TRACK_HEAD.ATTENTION.SAMPLING_STRATEGY = 'all'  # ['all', 'random', 'hard']
 cfg.MODEL.TRACK_HEAD.ATTENTION.N_MAX_FRAME_SAMPLES = 64
 cfg.MODEL.TRACK_HEAD.ATTENTION.N_QUERY_KEY_CHANNELS = 32
@@ -91,8 +91,6 @@ cfg.MODEL.TRACK_HEAD.EMM.CLS_POS_REGION = 0.8
 # Setting this param to be small (e.g. 0.1) for datasets that have fast motion,
 # such as caltech roadside pedestrian
 cfg.MODEL.TRACK_HEAD.EMM.COSINE_WINDOW_WEIGHT = 0.4
-
-cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP = False
 
 # all video-related parameters
 cfg.VIDEO = CN()

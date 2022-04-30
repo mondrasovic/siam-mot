@@ -1,0 +1,32 @@
+{
+    "train_dir_path": "./demos/models/crowdhuman_orig_big_2x/DLA-34-FPN_box_EMM_crowdhuman_train_fbox_crowdhuman_val_fbox_crowdhuman",
+    "local_ranks": [
+        0,
+        1
+    ],
+    "config_file_path": "./configs/dla/DLA_34_FPN_EMM_MOT17_fri.yaml",
+    "dataset_name": "MOT17_DPM",
+    "data_subset": "train",
+    "output_root_path": "./eval_crowdhuman_orig_big_2x",
+    "csv_file_name": "eval_results.csv",
+    "model_suffixes": [
+        "0010000",
+        "0015000",
+        "0020000",
+        "0025000",
+        "0030000",
+        "0035000"
+    ],
+    "cfg_opts_groups": [
+        [
+            [
+                "MODEL.TRACK_HEAD.ATTENTION.ENABLE",
+                "False"
+            ]
+        ]
+    ],
+    "cfg_val_map": {
+        "True": "with_dsa",
+        "False": "without_dsa"
+    }
+}

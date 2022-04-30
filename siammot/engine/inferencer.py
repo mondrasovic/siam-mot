@@ -80,9 +80,9 @@ def do_inference(
         sample_name, raw_info=None, metadata=sample.metadata
     )
 
-    if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
-        response_map_vis = build_or_get_existing_response_map_visualizer()
-        response_map_vis.init_new_sequence(sample_name)
+    # if cfg.MODEL.TRACK_HEAD.EMM.VIS_RESPONSE_MAP:
+    #     response_map_vis = build_or_get_existing_response_map_visualizer()
+    #     response_map_vis.init_new_sequence(sample_name)
 
     network_time = 0
     for (video_clip, frame_id, timestamps) in tqdm(video_loader):
