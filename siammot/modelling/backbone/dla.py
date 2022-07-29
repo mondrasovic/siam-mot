@@ -9,7 +9,8 @@ from maskrcnn_benchmark.layers import Conv2d, DFConv2d, FrozenBatchNorm2d
 from maskrcnn_benchmark.utils.model_serialization import load_state_dict
 from maskrcnn_benchmark.utils.registry import Registry
 from timm.models.layers import SelectAdaptivePool2d
-from torchvision.models.utils import load_state_dict_from_url
+# from torchvision.models.utils import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 
 model_urls = {
     'dla34': 'http://dl.yf.io/dla/models/imagenet/dla34-ba72cf86.pth',
